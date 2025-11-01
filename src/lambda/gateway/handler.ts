@@ -55,6 +55,7 @@ const router = new ProviderRouter(providers, providerConfigs);
 /**
  * Main API Gateway Lambda handler for AI Model Gateway
  * Handles routing, authentication, and request processing
+ * Updated to test GitHub Actions deployment pipeline
  */
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   const correlationId = event.requestContext.requestId;
