@@ -1,5 +1,6 @@
 // Core type definitions for the AI Model Gateway
 export * from './product-types';
+export * from './security-types';
 
 /**
  * Standard LLM request interface
@@ -123,7 +124,7 @@ export enum ProviderType {
   OPENAI = 'openai',
   BEDROCK = 'bedrock',
   AZURE = 'azure',
-  LOCAL = 'local'
+  LOCAL = 'local',
 }
 
 /**
@@ -151,7 +152,7 @@ export enum RoutingStrategy {
   COST_OPTIMIZED = 'cost_optimized',
   LATENCY_OPTIMIZED = 'latency_optimized',
   ROUND_ROBIN = 'round_robin',
-  PRIORITY_BASED = 'priority_based'
+  PRIORITY_BASED = 'priority_based',
 }
 
 /**
@@ -184,7 +185,7 @@ export enum RateLimitTier {
   FREE = 'free',
   BASIC = 'basic',
   PREMIUM = 'premium',
-  ENTERPRISE = 'enterprise'
+  ENTERPRISE = 'enterprise',
 }
 
 /**
@@ -214,7 +215,7 @@ export enum ErrorType {
   RATE_LIMIT_EXCEEDED = 'RATE_LIMIT_EXCEEDED',
   PROVIDER_UNAVAILABLE = 'PROVIDER_UNAVAILABLE',
   INVALID_REQUEST = 'INVALID_REQUEST',
-  INTERNAL_ERROR = 'INTERNAL_ERROR'
+  INTERNAL_ERROR = 'INTERNAL_ERROR',
 }
 
 export interface ErrorResponse {
@@ -236,7 +237,7 @@ export enum AuthType {
   API_KEY = 'api_key',
   JWT = 'jwt',
   OAUTH = 'oauth',
-  IAM = 'iam'
+  IAM = 'iam',
 }
 
 /**
@@ -275,7 +276,6 @@ export interface AuthContext {
   permissions: ApiKeyPermission[];
   metadata?: Record<string, any>;
 }
-
 
 /**
  * Metrics for observability
@@ -344,5 +344,5 @@ export enum AlertChannel {
   EMAIL = 'email',
   SLACK = 'slack',
   PAGERDUTY = 'pagerduty',
-  SNS = 'sns'
+  SNS = 'sns',
 }
