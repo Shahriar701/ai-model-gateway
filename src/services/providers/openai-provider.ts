@@ -52,7 +52,12 @@ export class OpenAIProvider extends BaseProvider {
           completionTokens: 50,
           totalTokens: this.calculatePromptTokens(request.messages) + 50
         },
-        cost: this.estimateCost(request),
+        cost: {
+          total: this.estimateCost(request),
+          promptCost: (this.calculatePromptTokens(request.messages) / 1000) * 0.03,
+          completionCost: (50 / 1000) * 0.06,
+          currency: 'USD'
+        },
         latency: Date.now() - startTime,
         provider: this.name
       };

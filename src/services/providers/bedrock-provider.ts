@@ -51,7 +51,12 @@ export class BedrockProvider extends BaseProvider {
           completionTokens: 45,
           totalTokens: this.calculatePromptTokens(request.messages) + 45
         },
-        cost: this.estimateCost(request),
+        cost: {
+          total: this.estimateCost(request),
+          promptCost: (this.calculatePromptTokens(request.messages) / 1000) * 0.008,
+          completionCost: (45 / 1000) * 0.024,
+          currency: 'USD'
+        },
         latency: Date.now() - startTime,
         provider: this.name
       };

@@ -17,7 +17,7 @@ class TestProvider extends BaseProvider {
         finishReason: 'stop'
       }],
       usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 },
-      cost: 0.01,
+      cost: { total: 0.01, promptCost: 0.005, completionCost: 0.005, currency: 'USD' },
       latency: 100,
       provider: this.name
     };
