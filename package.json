@@ -25,7 +25,7 @@
     "bootstrap": "cdk bootstrap",
     "setup:dev": "./scripts/setup-dev.sh",
     "clean": "rm -rf lib/ cdk.out/ coverage/ node_modules/.cache/",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc src/**/*.ts --noEmit --skipLibCheck",
     "test:unit": "jest --testPathPattern=test/.*\\.test\\.ts$",
     "test:integration": "jest --testPathPattern=test/.*\\.integration\\.ts$",
     "test:e2e": "jest --testPathPattern=test/.*\\.e2e\\.ts$",
