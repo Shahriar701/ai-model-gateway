@@ -1,3 +1,5 @@
 // MCP service exports
-export { MCPServer, MCPRequest, MCPResponse } from './mcp-server';
-export { ProductService, ProductResult } from './product-service';
+export { MCPServer } from './mcp-server';
+export type { MCPRequest, MCPResponse } from './mcp-server';
+export { ProductService } from './product-service';
+export type { ProductResult } from './product-service';

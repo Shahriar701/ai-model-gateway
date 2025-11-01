@@ -1,6 +1,5 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { Logger } from '../../shared/utils/logger';
-import { ErrorHandler } from '../../shared/utils/error-handler';
+import { Logger, ErrorHandler } from '../../shared/utils';
 
 const logger = new Logger('MCPServerHandler');
 
