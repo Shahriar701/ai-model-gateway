@@ -1,9 +1,9 @@
 import { Logger } from '../../shared/utils/logger';
-import { 
-  Product, 
-  ProductSearchQuery, 
+import {
+  Product,
+  ProductSearchQuery,
   ProductSearchResult,
-  ProductFilters 
+  ProductFilters,
 } from '../../shared/types/product-types';
 
 const logger = new Logger('ProductService');
@@ -19,7 +19,7 @@ export class ProductService {
     try {
       // TODO: Implement actual product search logic
       // This would typically query DynamoDB or ElasticSearch
-      
+
       // Placeholder implementation
       const mockProducts: Product[] = [
         {
@@ -30,38 +30,48 @@ export class ProductService {
             amount: 199.99,
             currency: 'EUR',
             originalPrice: 249.99,
-            discount: { percentage: 20, amount: 50 }
+            discount: { percentage: 20, amount: 50 },
           },
           availability: {
             inStock: true,
             quantity: 150,
-            shippingTime: '1-2 days'
+            shippingTime: '1-2 days',
           },
           category: {
             id: 'cat_electronics',
             name: 'Electronics',
-            path: ['Electronics', 'Audio', 'Headphones']
+            path: ['Electronics', 'Audio', 'Headphones'],
           },
           specifications: {
             brand: 'TechBrand',
             color: 'Black',
-            features: ['Noise Cancellation', 'Wireless', 'Bluetooth 5.0']
+            features: ['Noise Cancellation', 'Wireless', 'Bluetooth 5.0'],
           },
           images: [
-            { url: 'https://example.com/images/headphones-1.jpg', alt: 'Headphones front view', type: 'main', order: 1 },
-            { url: 'https://example.com/images/headphones-2.jpg', alt: 'Headphones side view', type: 'gallery', order: 2 }
+            {
+              url: 'https://example.com/images/headphones-1.jpg',
+              alt: 'Headphones front view',
+              type: 'main',
+              order: 1,
+            },
+            {
+              url: 'https://example.com/images/headphones-2.jpg',
+              alt: 'Headphones side view',
+              type: 'gallery',
+              order: 2,
+            },
           ],
           rating: {
             average: 4.5,
-            count: 1250
+            count: 1250,
           },
           metadata: {
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             views: 5000,
             sales: 850,
-            tags: ['wireless', 'noise-cancelling', 'premium']
-          }
+            tags: ['wireless', 'noise-cancelling', 'premium'],
+          },
         },
         {
           id: 'prod_002',
@@ -69,66 +79,72 @@ export class ProductService {
           description: 'Advanced fitness tracking with heart rate monitoring',
           price: {
             amount: 299.99,
-            currency: 'EUR'
+            currency: 'EUR',
           },
           availability: {
             inStock: true,
             quantity: 75,
-            shippingTime: '2-3 days'
+            shippingTime: '2-3 days',
           },
           category: {
             id: 'cat_wearables',
             name: 'Wearables',
-            path: ['Electronics', 'Wearables', 'Smartwatches']
+            path: ['Electronics', 'Wearables', 'Smartwatches'],
           },
           specifications: {
             brand: 'FitTech',
             color: 'Silver',
-            features: ['Heart Rate Monitor', 'GPS', 'Water Resistant']
+            features: ['Heart Rate Monitor', 'GPS', 'Water Resistant'],
           },
           images: [
-            { url: 'https://example.com/images/watch-1.jpg', alt: 'Smartwatch', type: 'main', order: 1 }
+            {
+              url: 'https://example.com/images/watch-1.jpg',
+              alt: 'Smartwatch',
+              type: 'main',
+              order: 1,
+            },
           ],
           rating: {
             average: 4.3,
-            count: 890
+            count: 890,
           },
           metadata: {
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             views: 3200,
             sales: 420,
-            tags: ['fitness', 'smartwatch', 'health']
-          }
-        }
+            tags: ['fitness', 'smartwatch', 'health'],
+          },
+        },
       ];
 
       // Apply filters if provided
       let filteredProducts = mockProducts;
-      
+
       if (filters?.category) {
-        filteredProducts = filteredProducts.filter(p => 
+        filteredProducts = filteredProducts.filter(p =>
           p.category.name.toLowerCase().includes(filters.category!.toLowerCase())
         );
       }
 
       if (filters?.priceRange) {
-        filteredProducts = filteredProducts.filter(p => 
-          p.price.amount >= (filters.priceRange!.min || 0) &&
-          p.price.amount <= (filters.priceRange!.max || Infinity)
+        filteredProducts = filteredProducts.filter(
+          p =>
+            p.price.amount >= (filters.priceRange!.min || 0) &&
+            p.price.amount <= (filters.priceRange!.max || Infinity)
         );
       }
 
       if (filters?.availability !== undefined) {
-        filteredProducts = filteredProducts.filter(p => 
-          p.availability.inStock === filters.availability
+        filteredProducts = filteredProducts.filter(
+          p => p.availability.inStock === filters.availability
         );
       }
 
       logger.info('Product search completed', {
         query,
         totalResults: filteredProducts.length,
-        filters
+        filters,
       });
 
       return filteredProducts;
@@ -146,7 +162,7 @@ export class ProductService {
       // Placeholder implementation
       const products = await this.searchProducts('');
       const product = products.find(p => p.id === productId);
-      
+
       if (product) {
         logger.info('Product found', { productId, productName: product.name });
       } else {
@@ -171,11 +187,12 @@ export class ProductService {
       return 'No products found matching the criteria.';
     }
 
-    const formattedProducts = products.map(product => {
-      const discount = product.price.discount 
-        ? `(${product.price.discount.percentage}% off)` 
-        : '';
-      return `Product: ${product.name}
+    const formattedProducts = products
+      .map(product => {
+        const discount = product.price.discount
+          ? `(${product.price.discount.percentage}% off)`
+          : '';
+        return `Product: ${product.name}
 Price: ${product.price.amount} ${product.price.currency} ${discount}
 Category: ${product.category.name}
 Description: ${product.description}
@@ -183,7 +200,8 @@ Availability: ${product.availability.inStock ? 'In Stock' : 'Out of Stock'}${pro
 Rating: ${product.rating?.average || 'N/A'}/5 (${product.rating?.count || 0} reviews)
 Brand: ${product.specifications.brand || 'N/A'}
 Key Features: ${product.specifications.features?.join(', ') || 'N/A'}`;
-    }).join('\n\n---\n\n');
+      })
+      .join('\n\n---\n\n');
 
     return `Found ${products.length} product(s):\n\n${formattedProducts}`;
   }

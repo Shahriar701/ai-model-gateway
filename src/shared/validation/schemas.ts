@@ -10,24 +10,30 @@ export const ChatMessageSchema = z.object({
   role: z.enum(['system', 'user', 'assistant', 'function']),
   content: z.string().min(1, 'Message content cannot be empty'),
   name: z.string().optional(),
-  functionCall: z.object({
-    name: z.string(),
-    arguments: z.string()
-  }).optional()
+  functionCall: z
+    .object({
+      name: z.string(),
+      arguments: z.string(),
+    })
+    .optional(),
 });
 
 // MCP context schema
 export const MCPContextSchema = z.object({
   productIds: z.array(z.string()).optional(),
   searchQuery: z.string().optional(),
-  filters: z.object({
-    category: z.string().optional(),
-    priceRange: z.object({
-      min: z.number().min(0),
-      max: z.number().min(0)
-    }).optional(),
-    availability: z.boolean().optional()
-  }).optional()
+  filters: z
+    .object({
+      category: z.string().optional(),
+      priceRange: z
+        .object({
+          min: z.number().min(0),
+          max: z.number().min(0),
+        })
+        .optional(),
+      availability: z.boolean().optional(),
+    })
+    .optional(),
 });
 
 // Request metadata schema
@@ -36,7 +42,7 @@ export const RequestMetadataSchema = z.object({
   sessionId: z.string().optional(),
   applicationId: z.string().optional(),
   tags: z.array(z.string()).optional(),
-  customFields: z.record(z.any()).optional()
+  customFields: z.record(z.any()).optional(),
 });
 
 // LLM request schema
@@ -52,14 +58,14 @@ export const LLMRequestSchema = z.object({
   stream: z.boolean().optional(),
   user: z.string().optional(),
   mcpContext: MCPContextSchema.optional(),
-  metadata: RequestMetadataSchema.optional()
+  metadata: RequestMetadataSchema.optional(),
 });
 
 // Token usage schema
 export const TokenUsageSchema = z.object({
   promptTokens: z.number().int().min(0),
   completionTokens: z.number().int().min(0),
-  totalTokens: z.number().int().min(0)
+  totalTokens: z.number().int().min(0),
 });
 
 // Cost breakdown schema
@@ -67,7 +73,7 @@ export const CostBreakdownSchema = z.object({
   total: z.number().min(0),
   promptCost: z.number().min(0),
   completionCost: z.number().min(0),
-  currency: z.string().length(3) // ISO 4217 currency code
+  currency: z.string().length(3), // ISO 4217 currency code
 });
 
 // Provider config schema
@@ -83,7 +89,7 @@ export const ProviderConfigSchema = z.object({
   costPerInputToken: z.number().min(0),
   costPerOutputToken: z.number().min(0),
   models: z.array(z.string()).min(1),
-  healthCheckInterval: z.number().int().min(5000).optional()
+  healthCheckInterval: z.number().int().min(5000).optional(),
 });
 
 // Rate limit config schema
@@ -93,7 +99,7 @@ export const RateLimitConfigSchema = z.object({
   requestsPerDay: z.number().int().min(1),
   burstLimit: z.number().int().min(1),
   tokensPerMinute: z.number().int().min(1).optional(),
-  tokensPerDay: z.number().int().min(1).optional()
+  tokensPerDay: z.number().int().min(1).optional(),
 });
 
 // API key schema
@@ -107,24 +113,28 @@ export const ApiKeySchema = z.object({
   createdAt: z.string().datetime(),
   expiresAt: z.string().datetime().optional(),
   lastUsedAt: z.string().datetime().optional(),
-  permissions: z.array(z.object({
-    resource: z.string(),
-    actions: z.array(z.string())
-  })),
-  metadata: z.record(z.any()).optional()
+  permissions: z.array(
+    z.object({
+      resource: z.string(),
+      actions: z.array(z.string()),
+    })
+  ),
+  metadata: z.record(z.any()).optional(),
 });
 
 // Product search request schema
 export const ProductSearchRequestSchema = z.object({
   query: z.string().min(1).max(500),
   category: z.string().optional(),
-  priceRange: z.object({
-    min: z.number().min(0),
-    max: z.number().min(0)
-  }).optional(),
+  priceRange: z
+    .object({
+      min: z.number().min(0),
+      max: z.number().min(0),
+    })
+    .optional(),
   availability: z.boolean().optional(),
   limit: z.number().int().min(1).max(100).default(10),
-  offset: z.number().int().min(0).default(0)
+  offset: z.number().int().min(0).default(0),
 });
 
 /**
@@ -136,16 +146,16 @@ export class ValidationHelper {
    */
   static validateLLMRequest(data: unknown) {
     const result = LLMRequestSchema.safeParse(data);
-    
+
     if (!result.success) {
       const errors = result.error.errors.map(err => ({
         field: err.path.join('.'),
-        message: err.message
+        message: err.message,
       }));
-      
+
       throw new ValidationError('Invalid LLM request', errors);
     }
-    
+
     return result.data;
   }
 
@@ -154,16 +164,16 @@ export class ValidationHelper {
    */
   static validateProviderConfig(data: unknown) {
     const result = ProviderConfigSchema.safeParse(data);
-    
+
     if (!result.success) {
       const errors = result.error.errors.map(err => ({
         field: err.path.join('.'),
-        message: err.message
+        message: err.message,
       }));
-      
+
       throw new ValidationError('Invalid provider configuration', errors);
     }
-    
+
     return result.data;
   }
 
@@ -172,16 +182,16 @@ export class ValidationHelper {
    */
   static validateApiKey(data: unknown) {
     const result = ApiKeySchema.safeParse(data);
-    
+
     if (!result.success) {
       const errors = result.error.errors.map(err => ({
         field: err.path.join('.'),
-        message: err.message
+        message: err.message,
       }));
-      
+
       throw new ValidationError('Invalid API key', errors);
     }
-    
+
     return result.data;
   }
 
@@ -190,16 +200,16 @@ export class ValidationHelper {
    */
   static validateProductSearchRequest(data: unknown) {
     const result = ProductSearchRequestSchema.safeParse(data);
-    
+
     if (!result.success) {
       const errors = result.error.errors.map(err => ({
         field: err.path.join('.'),
-        message: err.message
+        message: err.message,
       }));
-      
+
       throw new ValidationError('Invalid product search request', errors);
     }
-    
+
     return result.data;
   }
 }

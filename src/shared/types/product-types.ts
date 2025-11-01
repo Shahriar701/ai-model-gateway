@@ -190,7 +190,7 @@ export enum RecommendationReason {
   SIMILAR = 'similar',
   FREQUENTLY_BOUGHT_TOGETHER = 'frequently_bought_together',
   CUSTOMERS_ALSO_VIEWED = 'customers_also_viewed',
-  BASED_ON_HISTORY = 'based_on_history'
+  BASED_ON_HISTORY = 'based_on_history',
 }
 
 /**

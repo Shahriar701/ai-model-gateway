@@ -1,5 +1,11 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import {
+  DynamoDBDocumentClient,
+  GetCommand,
+  PutCommand,
+  QueryCommand,
+  UpdateCommand,
+} from '@aws-sdk/lib-dynamodb';
 import { Logger } from '../../shared/utils';
 import { ApiKey, RateLimitTier, ApiKeyPermission } from '../../shared/types';
 import { ValidationError } from '../../shared/validation';
@@ -17,7 +23,7 @@ export class ApiKeyService {
 
   constructor(tableName?: string) {
     const client = new DynamoDBClient({
-      region: process.env.AWS_REGION || 'us-east-1'
+      region: process.env.AWS_REGION || 'us-east-1',
     });
     this.dynamoClient = DynamoDBDocumentClient.from(client);
     this.tableName = tableName || process.env.API_KEYS_TABLE || 'ai-gateway-api-keys';
@@ -36,7 +42,7 @@ export class ApiKeyService {
     const keyId = this.generateKeyId();
     const rawKey = this.generateRawKey();
     const hashedKey = this.hashKey(rawKey);
-    
+
     const apiKey: ApiKey = {
       id: keyId,
       key: `ak_${keyId}_${rawKey}`, // Return the full key only once
@@ -49,8 +55,8 @@ export class ApiKeyService {
       permissions,
       metadata: {
         createdBy: 'api-key-service',
-        version: '1.0'
-      }
+        version: '1.0',
+      },
     };
 
     // Store hashed version in database
@@ -60,21 +66,23 @@ export class ApiKeyService {
       PK: `USER#${userId}`,
       SK: `APIKEY#${keyId}`,
       GSI1PK: `APIKEY#${keyId}`,
-      GSI1SK: `USER#${userId}`
+      GSI1SK: `USER#${userId}`,
     };
 
     try {
-      await this.dynamoClient.send(new PutCommand({
-        TableName: this.tableName,
-        Item: dbRecord,
-        ConditionExpression: 'attribute_not_exists(PK)'
-      }));
+      await this.dynamoClient.send(
+        new PutCommand({
+          TableName: this.tableName,
+          Item: dbRecord,
+          ConditionExpression: 'attribute_not_exists(PK)',
+        })
+      );
 
       logger.info('API key created successfully', {
         keyId,
         userId,
         tier,
-        name
+        name,
       });
 
       return apiKey; // Return with full key for user to save
@@ -82,7 +90,7 @@ export class ApiKeyService {
       logger.error('Failed to create API key', error as Error, {
         keyId,
         userId,
-        name
+        name,
       });
       throw new Error('Failed to create API key');
     }
@@ -110,14 +118,16 @@ export class ApiKeyService {
       const hashedKey = this.hashKey(rawKey);
 
       // Query by keyId using GSI
-      const result = await this.dynamoClient.send(new QueryCommand({
-        TableName: this.tableName,
-        IndexName: 'GSI1',
-        KeyConditionExpression: 'GSI1PK = :pk',
-        ExpressionAttributeValues: {
-          ':pk': `APIKEY#${keyId}`
-        }
-      }));
+      const result = await this.dynamoClient.send(
+        new QueryCommand({
+          TableName: this.tableName,
+          IndexName: 'GSI1',
+          KeyConditionExpression: 'GSI1PK = :pk',
+          ExpressionAttributeValues: {
+            ':pk': `APIKEY#${keyId}`,
+          },
+        })
+      );
 
       if (!result.Items || result.Items.length === 0) {
         logger.warn('API key not found', { keyId });
@@ -150,7 +160,7 @@ export class ApiKeyService {
       logger.info('API key validated successfully', {
         keyId,
         userId: keyRecord.userId,
-        tier: keyRecord.tier
+        tier: keyRecord.tier,
       });
 
       return {
@@ -158,10 +168,12 @@ export class ApiKeyService {
         userId: keyRecord.userId,
         tier: keyRecord.tier,
         permissions: keyRecord.permissions || [],
-        keyId
+        keyId,
       };
     } catch (error) {
-      logger.error('API key validation failed', error as Error, { apiKey: apiKey.substring(0, 10) + '...' });
+      logger.error('API key validation failed', error as Error, {
+        apiKey: apiKey.substring(0, 10) + '...',
+      });
       return { valid: false };
     }
   }
@@ -171,14 +183,16 @@ export class ApiKeyService {
    */
   async listApiKeys(userId: string): Promise<Omit<ApiKey, 'key'>[]> {
     try {
-      const result = await this.dynamoClient.send(new QueryCommand({
-        TableName: this.tableName,
-        KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
-        ExpressionAttributeValues: {
-          ':pk': `USER#${userId}`,
-          ':sk': 'APIKEY#'
-        }
-      }));
+      const result = await this.dynamoClient.send(
+        new QueryCommand({
+          TableName: this.tableName,
+          KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
+          ExpressionAttributeValues: {
+            ':pk': `USER#${userId}`,
+            ':sk': 'APIKEY#',
+          },
+        })
+      );
 
       const apiKeys = (result.Items || []).map(item => {
         const { key, PK, SK, GSI1PK, GSI1SK, ...apiKey } = item as any;
@@ -198,19 +212,21 @@ export class ApiKeyService {
    */
   async revokeApiKey(userId: string, keyId: string): Promise<void> {
     try {
-      await this.dynamoClient.send(new UpdateCommand({
-        TableName: this.tableName,
-        Key: {
-          PK: `USER#${userId}`,
-          SK: `APIKEY#${keyId}`
-        },
-        UpdateExpression: 'SET enabled = :enabled, updatedAt = :updatedAt',
-        ExpressionAttributeValues: {
-          ':enabled': false,
-          ':updatedAt': new Date().toISOString()
-        },
-        ConditionExpression: 'attribute_exists(PK)'
-      }));
+      await this.dynamoClient.send(
+        new UpdateCommand({
+          TableName: this.tableName,
+          Key: {
+            PK: `USER#${userId}`,
+            SK: `APIKEY#${keyId}`,
+          },
+          UpdateExpression: 'SET enabled = :enabled, updatedAt = :updatedAt',
+          ExpressionAttributeValues: {
+            ':enabled': false,
+            ':updatedAt': new Date().toISOString(),
+          },
+          ConditionExpression: 'attribute_exists(PK)',
+        })
+      );
 
       logger.info('API key revoked successfully', { userId, keyId });
     } catch (error) {
@@ -224,13 +240,15 @@ export class ApiKeyService {
    */
   async getApiKey(userId: string, keyId: string): Promise<Omit<ApiKey, 'key'> | null> {
     try {
-      const result = await this.dynamoClient.send(new GetCommand({
-        TableName: this.tableName,
-        Key: {
-          PK: `USER#${userId}`,
-          SK: `APIKEY#${keyId}`
-        }
-      }));
+      const result = await this.dynamoClient.send(
+        new GetCommand({
+          TableName: this.tableName,
+          Key: {
+            PK: `USER#${userId}`,
+            SK: `APIKEY#${keyId}`,
+          },
+        })
+      );
 
       if (!result.Item) {
         return null;
@@ -258,14 +276,16 @@ export class ApiKeyService {
 
   private async updateLastUsed(pk: string, sk: string): Promise<void> {
     try {
-      await this.dynamoClient.send(new UpdateCommand({
-        TableName: this.tableName,
-        Key: { PK: pk, SK: sk },
-        UpdateExpression: 'SET lastUsedAt = :lastUsed',
-        ExpressionAttributeValues: {
-          ':lastUsed': new Date().toISOString()
-        }
-      }));
+      await this.dynamoClient.send(
+        new UpdateCommand({
+          TableName: this.tableName,
+          Key: { PK: pk, SK: sk },
+          UpdateExpression: 'SET lastUsedAt = :lastUsed',
+          ExpressionAttributeValues: {
+            ':lastUsed': new Date().toISOString(),
+          },
+        })
+      );
     } catch (error) {
       // Don't throw on lastUsed update failure
       logger.warn('Failed to update lastUsed timestamp', { pk, sk });

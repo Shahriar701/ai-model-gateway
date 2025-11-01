@@ -11,15 +11,17 @@ class TestProvider extends BaseProvider {
     return {
       id: 'test-id',
       model: request.model,
-      choices: [{
-        index: 0,
-        message: { role: 'assistant', content: 'Test response' },
-        finishReason: 'stop'
-      }],
+      choices: [
+        {
+          index: 0,
+          message: { role: 'assistant', content: 'Test response' },
+          finishReason: 'stop',
+        },
+      ],
       usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 },
       cost: { total: 0.01, promptCost: 0.005, completionCost: 0.005, currency: 'USD' },
       latency: 100,
-      provider: this.name
+      provider: this.name,
     };
   }
 
@@ -66,8 +68,10 @@ describe('BaseProvider', () => {
     });
 
     it('should return false when health check fails', async () => {
-      jest.spyOn(provider as any, 'performHealthCheck').mockRejectedValue(new Error('Health check failed'));
-      
+      jest
+        .spyOn(provider as any, 'performHealthCheck')
+        .mockRejectedValue(new Error('Health check failed'));
+
       const isAvailable = await provider.isAvailable();
       expect(isAvailable).toBe(false);
     });
@@ -83,8 +87,10 @@ describe('BaseProvider', () => {
     });
 
     it('should return unhealthy status when check fails', async () => {
-      jest.spyOn(provider as any, 'performHealthCheck').mockRejectedValue(new Error('Health check failed'));
-      
+      jest
+        .spyOn(provider as any, 'performHealthCheck')
+        .mockRejectedValue(new Error('Health check failed'));
+
       const status = await provider.getHealthStatus();
 
       expect(status.healthy).toBe(false);

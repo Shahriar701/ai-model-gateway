@@ -19,13 +19,13 @@ export class OpenAIProvider extends BaseProvider {
     'gpt-4': { input: 0.03, output: 0.06 },
     'gpt-4-turbo': { input: 0.01, output: 0.03 },
     'gpt-3.5-turbo': { input: 0.0015, output: 0.002 },
-    'gpt-3.5-turbo-16k': { input: 0.003, output: 0.004 }
+    'gpt-3.5-turbo-16k': { input: 0.003, output: 0.004 },
   };
 
   constructor() {
     super();
     this.apiKey = process.env.OPENAI_API_KEY || '';
-    
+
     if (!this.apiKey) {
       logger.warn('OpenAI API key not configured - using mock responses');
     }
@@ -38,7 +38,7 @@ export class OpenAIProvider extends BaseProvider {
     logger.info('Generating OpenAI completion', {
       requestId,
       model: request.model,
-      messageCount: request.messages.length
+      messageCount: request.messages.length,
     });
 
     try {
@@ -57,25 +57,27 @@ export class OpenAIProvider extends BaseProvider {
         presence_penalty: request.presencePenalty,
         stop: request.stop,
         stream: false,
-        user: request.user
+        user: request.user,
       };
 
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
+          Authorization: `Bearer ${this.apiKey}`,
           'Content-Type': 'application/json',
-          'User-Agent': 'AI-Model-Gateway/1.0'
+          'User-Agent': 'AI-Model-Gateway/1.0',
         },
-        body: JSON.stringify(openaiRequest)
+        body: JSON.stringify(openaiRequest),
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({})) as any;
-        throw new Error(`OpenAI API error: ${response.status} - ${errorData.error?.message || response.statusText}`);
+        const errorData = (await response.json().catch(() => ({}))) as any;
+        throw new Error(
+          `OpenAI API error: ${response.status} - ${errorData.error?.message || response.statusText}`
+        );
       }
 
-      const data = await response.json() as any;
+      const data = (await response.json()) as any;
       const latency = Date.now() - startTime;
 
       const cost = this.calculateActualCost(
@@ -92,15 +94,15 @@ export class OpenAIProvider extends BaseProvider {
           message: {
             role: choice.message.role,
             content: choice.message.content,
-            functionCall: choice.message.function_call
+            functionCall: choice.message.function_call,
           },
           finishReason: choice.finish_reason,
-          logprobs: choice.logprobs
+          logprobs: choice.logprobs,
         })),
         usage: {
           promptTokens: data.usage.prompt_tokens,
           completionTokens: data.usage.completion_tokens,
-          totalTokens: data.usage.total_tokens
+          totalTokens: data.usage.total_tokens,
         },
         cost,
         latency,
@@ -108,8 +110,8 @@ export class OpenAIProvider extends BaseProvider {
         metadata: {
           requestId,
           timestamp: new Date().toISOString(),
-          modelVersion: data.model
-        }
+          modelVersion: data.model,
+        },
       };
 
       logger.info('OpenAI completion generated successfully', {
@@ -117,7 +119,7 @@ export class OpenAIProvider extends BaseProvider {
         latency,
         totalTokens: data.usage.total_tokens,
         cost: cost.total,
-        model: data.model
+        model: data.model,
       });
 
       return llmResponse;
@@ -127,7 +129,11 @@ export class OpenAIProvider extends BaseProvider {
     }
   }
 
-  private generateMockResponse(request: LLMRequest, requestId: string, startTime: number): LLMResponse {
+  private generateMockResponse(
+    request: LLMRequest,
+    requestId: string,
+    startTime: number
+  ): LLMResponse {
     const promptTokens = this.calculatePromptTokens(request.messages);
     const completionTokens = 50;
     const cost = this.calculateActualCost(promptTokens, completionTokens, request.model);
@@ -135,40 +141,46 @@ export class OpenAIProvider extends BaseProvider {
     return {
       id: requestId,
       model: request.model,
-      choices: [{
-        index: 0,
-        message: {
-          role: 'assistant',
-          content: `Mock response from OpenAI ${request.model}. This is a demonstration response since no API key is configured. The request contained ${request.messages.length} messages.`
+      choices: [
+        {
+          index: 0,
+          message: {
+            role: 'assistant',
+            content: `Mock response from OpenAI ${request.model}. This is a demonstration response since no API key is configured. The request contained ${request.messages.length} messages.`,
+          },
+          finishReason: 'stop',
         },
-        finishReason: 'stop'
-      }],
+      ],
       usage: {
         promptTokens,
         completionTokens,
-        totalTokens: promptTokens + completionTokens
+        totalTokens: promptTokens + completionTokens,
       },
       cost,
       latency: Date.now() - startTime,
       provider: this.name,
       metadata: {
         requestId,
-        timestamp: new Date().toISOString()
-      }
+        timestamp: new Date().toISOString(),
+      },
     };
   }
 
-  private calculateActualCost(promptTokens: number, completionTokens: number, model: string): CostBreakdown {
+  private calculateActualCost(
+    promptTokens: number,
+    completionTokens: number,
+    model: string
+  ): CostBreakdown {
     const modelPricing = this.pricing[model] || this.pricing['gpt-3.5-turbo'];
-    
+
     const promptCost = (promptTokens / 1000) * modelPricing.input;
     const completionCost = (completionTokens / 1000) * modelPricing.output;
-    
+
     return {
       total: promptCost + completionCost,
       promptCost,
       completionCost,
-      currency: 'USD'
+      currency: 'USD',
     };
   }
 
@@ -176,10 +188,10 @@ export class OpenAIProvider extends BaseProvider {
     const promptTokens = this.calculatePromptTokens(request.messages);
     const estimatedCompletionTokens = request.maxTokens || 100;
     const modelPricing = this.pricing[request.model] || this.pricing['gpt-3.5-turbo'];
-    
+
     const promptCost = (promptTokens / 1000) * modelPricing.input;
     const completionCost = (estimatedCompletionTokens / 1000) * modelPricing.output;
-    
+
     return promptCost + completionCost;
   }
 

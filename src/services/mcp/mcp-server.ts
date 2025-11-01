@@ -21,7 +21,7 @@ export class MCPServer {
       // TODO: Initialize MCP protocol handlers
       // TODO: Set up product data connections
       // TODO: Register available tools and resources
-      
+
       this.initialized = true;
       logger.info('MCP Server initialized successfully');
     } catch (error) {
@@ -37,7 +37,7 @@ export class MCPServer {
 
     logger.info('Handling MCP request', {
       method: request.method,
-      id: request.id
+      id: request.id,
     });
 
     try {
@@ -62,8 +62,8 @@ export class MCPServer {
         id: request.id,
         error: {
           code: -32603,
-          message: (error as Error).message
-        }
+          message: (error as Error).message,
+        },
       };
     }
   }
@@ -76,13 +76,13 @@ export class MCPServer {
         protocolVersion: '2024-11-05',
         capabilities: {
           tools: {},
-          resources: {}
+          resources: {},
         },
         serverInfo: {
           name: 'ai-model-gateway-mcp',
-          version: '1.0.0'
-        }
-      }
+          version: '1.0.0',
+        },
+      },
     };
   }
 
@@ -94,33 +94,34 @@ export class MCPServer {
         tools: [
           {
             name: 'product_search',
-            description: 'Search for products by name, category, price range, or availability. Returns formatted product information suitable for LLM processing.',
+            description:
+              'Search for products by name, category, price range, or availability. Returns formatted product information suitable for LLM processing.',
             inputSchema: {
               type: 'object',
               properties: {
-                query: { 
+                query: {
                   type: 'string',
-                  description: 'Search query for product name or description'
+                  description: 'Search query for product name or description',
                 },
-                category: { 
+                category: {
                   type: 'string',
-                  description: 'Filter by product category (e.g., Electronics, Wearables)'
+                  description: 'Filter by product category (e.g., Electronics, Wearables)',
                 },
                 priceRange: {
                   type: 'object',
                   properties: {
                     min: { type: 'number', description: 'Minimum price' },
-                    max: { type: 'number', description: 'Maximum price' }
+                    max: { type: 'number', description: 'Maximum price' },
                   },
-                  description: 'Price range filter'
+                  description: 'Price range filter',
                 },
                 availability: {
                   type: 'boolean',
-                  description: 'Filter by availability (true for in-stock only)'
-                }
+                  description: 'Filter by availability (true for in-stock only)',
+                },
               },
-              required: ['query']
-            }
+              required: ['query'],
+            },
           },
           {
             name: 'get_product',
@@ -130,11 +131,11 @@ export class MCPServer {
               properties: {
                 productId: {
                   type: 'string',
-                  description: 'Unique product identifier'
-                }
+                  description: 'Unique product identifier',
+                },
               },
-              required: ['productId']
-            }
+              required: ['productId'],
+            },
           },
           {
             name: 'get_category_products',
@@ -144,20 +145,20 @@ export class MCPServer {
               properties: {
                 category: {
                   type: 'string',
-                  description: 'Product category name'
-                }
+                  description: 'Product category name',
+                },
               },
-              required: ['category']
-            }
-          }
-        ]
-      }
+              required: ['category'],
+            },
+          },
+        ],
+      },
     };
   }
 
   private async callTool(request: MCPRequest): Promise<MCPResponse> {
     const { name, arguments: args } = request.params;
-    
+
     logger.info('Executing MCP tool', { toolName: name, args });
 
     try {
@@ -177,23 +178,20 @@ export class MCPServer {
         id: request.id,
         error: {
           code: -32602,
-          message: `Tool execution failed: ${(error as Error).message}`
-        }
+          message: `Tool execution failed: ${(error as Error).message}`,
+        },
       };
     }
   }
 
   private async executeProductSearch(id: string | number, args: any): Promise<MCPResponse> {
     const productService = new ProductService();
-    
-    const products = await productService.searchProducts(
-      args.query || '',
-      {
-        category: args.category,
-        priceRange: args.priceRange,
-        availability: args.availability
-      }
-    );
+
+    const products = await productService.searchProducts(args.query || '', {
+      category: args.category,
+      priceRange: args.priceRange,
+      availability: args.availability,
+    });
 
     const formattedResults = productService.formatProductsForLLM(products);
 
@@ -204,26 +202,26 @@ export class MCPServer {
         content: [
           {
             type: 'text',
-            text: formattedResults
-          }
-        ]
-      }
+            text: formattedResults,
+          },
+        ],
+      },
     };
   }
 
   private async executeGetProduct(id: string | number, args: any): Promise<MCPResponse> {
     const productService = new ProductService();
-    
+
     const product = await productService.getProductById(args.productId);
-    
+
     if (!product) {
       return {
         jsonrpc: '2.0',
         id,
         error: {
           code: -32602,
-          message: `Product not found: ${args.productId}`
-        }
+          message: `Product not found: ${args.productId}`,
+        },
       };
     }
 
@@ -236,16 +234,16 @@ export class MCPServer {
         content: [
           {
             type: 'text',
-            text: formatted
-          }
-        ]
-      }
+            text: formatted,
+          },
+        ],
+      },
     };
   }
 
   private async executeGetCategoryProducts(id: string | number, args: any): Promise<MCPResponse> {
     const productService = new ProductService();
-    
+
     const products = await productService.getProductsByCategory(args.category);
     const formattedResults = productService.formatProductsForLLM(products);
 
@@ -256,10 +254,10 @@ export class MCPServer {
         content: [
           {
             type: 'text',
-            text: formattedResults
-          }
-        ]
-      }
+            text: formattedResults,
+          },
+        ],
+      },
     };
   }
 
@@ -273,17 +271,17 @@ export class MCPServer {
           {
             uri: 'product://catalog',
             name: 'Product Catalog',
-            description: 'Access to product catalog data'
-          }
-        ]
-      }
+            description: 'Access to product catalog data',
+          },
+        ],
+      },
     };
   }
 
   private async readResource(request: MCPRequest): Promise<MCPResponse> {
     // TODO: Implement resource reading
     const { uri } = request.params;
-    
+
     logger.info('Reading MCP resource', { uri });
 
     return {
@@ -294,10 +292,10 @@ export class MCPServer {
           {
             uri,
             mimeType: 'application/json',
-            text: JSON.stringify({ message: 'Resource content placeholder' })
-          }
-        ]
-      }
+            text: JSON.stringify({ message: 'Resource content placeholder' }),
+          },
+        ],
+      },
     };
   }
 }

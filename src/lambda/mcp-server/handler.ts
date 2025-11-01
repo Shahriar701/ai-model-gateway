@@ -11,16 +11,14 @@ const productService = new ProductService();
  * MCP Server Lambda handler for product data integration
  * Implements Model Context Protocol for e-commerce data access
  */
-export const handler = async (
-  event: APIGatewayProxyEvent
-): Promise<APIGatewayProxyResult> => {
+export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   const correlationId = event.requestContext.requestId;
   logger.setCorrelationId(correlationId);
 
   try {
     logger.info('Processing MCP server request', {
       method: event.httpMethod,
-      path: event.path
+      path: event.path,
     });
 
     // Route based on path
@@ -56,13 +54,13 @@ async function routeRequest(
     statusCode: 404,
     headers: {
       'Content-Type': 'application/json',
-      'X-Correlation-ID': correlationId
+      'X-Correlation-ID': correlationId,
     },
     body: JSON.stringify({
       error: 'Route not found',
       path,
-      method: httpMethod
-    })
+      method: httpMethod,
+    }),
   };
 }
 
@@ -82,9 +80,9 @@ async function handleMCPRequest(
       statusCode: 200,
       headers: {
         'Content-Type': 'application/json',
-        'X-Correlation-ID': correlationId
+        'X-Correlation-ID': correlationId,
       },
-      body: JSON.stringify(response)
+      body: JSON.stringify(response),
     };
   } catch (error) {
     logger.error('MCP request failed', error as Error);
@@ -115,15 +113,15 @@ async function handleProductList(
       statusCode: 200,
       headers: {
         'Content-Type': 'application/json',
-        'X-Correlation-ID': correlationId
+        'X-Correlation-ID': correlationId,
       },
       body: JSON.stringify({
         products: paginatedProducts,
         total: products.length,
         limit,
         offset,
-        hasMore: offset + limit < products.length
-      })
+        hasMore: offset + limit < products.length,
+      }),
     };
   } catch (error) {
     logger.error('Product list failed', error as Error);
@@ -143,14 +141,11 @@ async function handleProductSearch(
     const searchRequest = JSON.parse(event.body);
     const validatedRequest = ValidationHelper.validateProductSearchRequest(searchRequest);
 
-    const products = await productService.searchProducts(
-      validatedRequest.query,
-      {
-        category: validatedRequest.category,
-        priceRange: validatedRequest.priceRange,
-        availability: validatedRequest.availability
-      }
-    );
+    const products = await productService.searchProducts(validatedRequest.query, {
+      category: validatedRequest.category,
+      priceRange: validatedRequest.priceRange,
+      availability: validatedRequest.availability,
+    });
 
     // Apply pagination
     const paginatedProducts = products.slice(
@@ -159,15 +154,16 @@ async function handleProductSearch(
     );
 
     // Format for LLM if requested
-    const formatted = event.queryStringParameters?.format === 'llm'
-      ? productService.formatProductsForLLM(paginatedProducts)
-      : undefined;
+    const formatted =
+      event.queryStringParameters?.format === 'llm'
+        ? productService.formatProductsForLLM(paginatedProducts)
+        : undefined;
 
     return {
       statusCode: 200,
       headers: {
         'Content-Type': 'application/json',
-        'X-Correlation-ID': correlationId
+        'X-Correlation-ID': correlationId,
       },
       body: JSON.stringify({
         products: paginatedProducts,
@@ -175,8 +171,8 @@ async function handleProductSearch(
         limit: validatedRequest.limit,
         offset: validatedRequest.offset,
         hasMore: validatedRequest.offset + validatedRequest.limit < products.length,
-        formatted
-      })
+        formatted,
+      }),
     };
   } catch (error) {
     logger.error('Product search failed', error as Error);

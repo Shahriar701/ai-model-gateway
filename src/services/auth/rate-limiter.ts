@@ -1,5 +1,10 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, GetCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import {
+  DynamoDBDocumentClient,
+  GetCommand,
+  PutCommand,
+  UpdateCommand,
+} from '@aws-sdk/lib-dynamodb';
 import { Logger } from '../../shared/utils';
 import { RateLimitTier, RateLimitConfig } from '../../shared/types';
 
@@ -20,7 +25,7 @@ export class RateLimiter {
       requestsPerDay: 1000,
       burstLimit: 5,
       tokensPerMinute: 1000,
-      tokensPerDay: 10000
+      tokensPerDay: 10000,
     },
     [RateLimitTier.BASIC]: {
       requestsPerMinute: 60,
@@ -28,7 +33,7 @@ export class RateLimiter {
       requestsPerDay: 10000,
       burstLimit: 20,
       tokensPerMinute: 10000,
-      tokensPerDay: 100000
+      tokensPerDay: 100000,
     },
     [RateLimitTier.PREMIUM]: {
       requestsPerMinute: 300,
@@ -36,7 +41,7 @@ export class RateLimiter {
       requestsPerDay: 100000,
       burstLimit: 100,
       tokensPerMinute: 100000,
-      tokensPerDay: 1000000
+      tokensPerDay: 1000000,
     },
     [RateLimitTier.ENTERPRISE]: {
       requestsPerMinute: 1000,
@@ -44,13 +49,13 @@ export class RateLimiter {
       requestsPerDay: 1000000,
       burstLimit: 500,
       tokensPerMinute: 1000000,
-      tokensPerDay: 10000000
-    }
+      tokensPerDay: 10000000,
+    },
   };
 
   constructor(tableName?: string) {
     const client = new DynamoDBClient({
-      region: process.env.AWS_REGION || 'us-east-1'
+      region: process.env.AWS_REGION || 'us-east-1',
     });
     this.dynamoClient = DynamoDBDocumentClient.from(client);
     this.tableName = tableName || process.env.REQUEST_LOGS_TABLE || 'ai-gateway-request-logs';
@@ -90,7 +95,7 @@ export class RateLimiter {
       const [minuteUsage, hourUsage, dayUsage] = await Promise.all([
         this.getUsage(userId, 'minute', currentMinute),
         this.getUsage(userId, 'hour', currentHour),
-        this.getUsage(userId, 'day', currentDay)
+        this.getUsage(userId, 'day', currentDay),
       ]);
 
       // Check limits
@@ -106,8 +111,12 @@ export class RateLimiter {
         tokenDayExceeded = dayUsage.tokens + tokens > config.tokensPerDay;
       }
 
-      const allowed = !minuteExceeded && !hourExceeded && !dayExceeded && 
-                     !tokenMinuteExceeded && !tokenDayExceeded;
+      const allowed =
+        !minuteExceeded &&
+        !hourExceeded &&
+        !dayExceeded &&
+        !tokenMinuteExceeded &&
+        !tokenDayExceeded;
 
       const result = {
         allowed,
@@ -115,19 +124,28 @@ export class RateLimiter {
           requestsPerMinute: Math.max(0, config.requestsPerMinute - minuteUsage.requests),
           requestsPerHour: Math.max(0, config.requestsPerHour - hourUsage.requests),
           requestsPerDay: Math.max(0, config.requestsPerDay - dayUsage.requests),
-          tokensPerMinute: config.tokensPerMinute ? 
-            Math.max(0, config.tokensPerMinute - minuteUsage.tokens) : undefined,
-          tokensPerDay: config.tokensPerDay ? 
-            Math.max(0, config.tokensPerDay - dayUsage.tokens) : undefined
+          tokensPerMinute: config.tokensPerMinute
+            ? Math.max(0, config.tokensPerMinute - minuteUsage.tokens)
+            : undefined,
+          tokensPerDay: config.tokensPerDay
+            ? Math.max(0, config.tokensPerDay - dayUsage.tokens)
+            : undefined,
         },
         resetTime: {
           minute: (currentMinute + 1) * 60 * 1000,
           hour: (currentHour + 1) * 60 * 60 * 1000,
-          day: (currentDay + 1) * 24 * 60 * 60 * 1000
+          day: (currentDay + 1) * 24 * 60 * 60 * 1000,
         },
-        retryAfter: allowed ? undefined : this.calculateRetryAfter(
-          minuteExceeded, hourExceeded, dayExceeded, currentMinute, currentHour, currentDay
-        )
+        retryAfter: allowed
+          ? undefined
+          : this.calculateRetryAfter(
+              minuteExceeded,
+              hourExceeded,
+              dayExceeded,
+              currentMinute,
+              currentHour,
+              currentDay
+            ),
       };
 
       if (!allowed) {
@@ -137,7 +155,7 @@ export class RateLimiter {
           minuteUsage: minuteUsage.requests,
           hourUsage: hourUsage.requests,
           dayUsage: dayUsage.requests,
-          tokens
+          tokens,
         });
       }
 
@@ -152,13 +170,13 @@ export class RateLimiter {
           requestsPerHour: config.requestsPerHour,
           requestsPerDay: config.requestsPerDay,
           tokensPerMinute: config.tokensPerMinute,
-          tokensPerDay: config.tokensPerDay
+          tokensPerDay: config.tokensPerDay,
         },
         resetTime: {
           minute: (currentMinute + 1) * 60 * 1000,
           hour: (currentHour + 1) * 60 * 60 * 1000,
-          day: (currentDay + 1) * 24 * 60 * 60 * 1000
-        }
+          day: (currentDay + 1) * 24 * 60 * 60 * 1000,
+        },
       };
     }
   }
@@ -166,11 +184,7 @@ export class RateLimiter {
   /**
    * Record a request for rate limiting
    */
-  async recordRequest(
-    userId: string,
-    tier: RateLimitTier,
-    tokens: number = 0
-  ): Promise<void> {
+  async recordRequest(userId: string, tier: RateLimitTier, tokens: number = 0): Promise<void> {
     const now = new Date();
     const currentMinute = Math.floor(now.getTime() / (60 * 1000));
     const currentHour = Math.floor(now.getTime() / (60 * 60 * 1000));
@@ -181,7 +195,7 @@ export class RateLimiter {
       await Promise.all([
         this.incrementUsage(userId, 'minute', currentMinute, tokens),
         this.incrementUsage(userId, 'hour', currentHour, tokens),
-        this.incrementUsage(userId, 'day', currentDay, tokens)
+        this.incrementUsage(userId, 'day', currentDay, tokens),
       ]);
 
       logger.info('Request recorded for rate limiting', {
@@ -190,13 +204,13 @@ export class RateLimiter {
         tokens,
         currentMinute,
         currentHour,
-        currentDay
+        currentDay,
       });
     } catch (error) {
       logger.error('Failed to record request for rate limiting', error as Error, {
         userId,
         tier,
-        tokens
+        tokens,
       });
       // Don't throw - rate limiting recording failure shouldn't block requests
     }
@@ -208,13 +222,15 @@ export class RateLimiter {
     periodValue: number
   ): Promise<{ requests: number; tokens: number }> {
     try {
-      const result = await this.dynamoClient.send(new GetCommand({
-        TableName: this.tableName,
-        Key: {
-          PK: `RATELIMIT#${userId}`,
-          SK: `${period.toUpperCase()}#${periodValue}`
-        }
-      }));
+      const result = await this.dynamoClient.send(
+        new GetCommand({
+          TableName: this.tableName,
+          Key: {
+            PK: `RATELIMIT#${userId}`,
+            SK: `${period.toUpperCase()}#${periodValue}`,
+          },
+        })
+      );
 
       if (!result.Item) {
         return { requests: 0, tokens: 0 };
@@ -222,7 +238,7 @@ export class RateLimiter {
 
       return {
         requests: result.Item.requests || 0,
-        tokens: result.Item.tokens || 0
+        tokens: result.Item.tokens || 0,
       };
     } catch (error) {
       logger.error('Failed to get usage', error as Error, { userId, period, periodValue });
@@ -239,28 +255,30 @@ export class RateLimiter {
     const ttl = this.calculateTTL(period, periodValue);
 
     try {
-      await this.dynamoClient.send(new UpdateCommand({
-        TableName: this.tableName,
-        Key: {
-          PK: `RATELIMIT#${userId}`,
-          SK: `${period.toUpperCase()}#${periodValue}`
-        },
-        UpdateExpression: 'ADD requests :inc, tokens :tokens SET #ttl = :ttl',
-        ExpressionAttributeNames: {
-          '#ttl': 'ttl'
-        },
-        ExpressionAttributeValues: {
-          ':inc': 1,
-          ':tokens': tokens,
-          ':ttl': ttl
-        }
-      }));
+      await this.dynamoClient.send(
+        new UpdateCommand({
+          TableName: this.tableName,
+          Key: {
+            PK: `RATELIMIT#${userId}`,
+            SK: `${period.toUpperCase()}#${periodValue}`,
+          },
+          UpdateExpression: 'ADD requests :inc, tokens :tokens SET #ttl = :ttl',
+          ExpressionAttributeNames: {
+            '#ttl': 'ttl',
+          },
+          ExpressionAttributeValues: {
+            ':inc': 1,
+            ':tokens': tokens,
+            ':ttl': ttl,
+          },
+        })
+      );
     } catch (error) {
       logger.error('Failed to increment usage', error as Error, {
         userId,
         period,
         periodValue,
-        tokens
+        tokens,
       });
       throw error;
     }
@@ -268,7 +286,7 @@ export class RateLimiter {
 
   private calculateTTL(period: 'minute' | 'hour' | 'day', periodValue: number): number {
     const now = Math.floor(Date.now() / 1000);
-    
+
     switch (period) {
       case 'minute':
         return now + 120; // 2 minutes buffer
@@ -290,13 +308,13 @@ export class RateLimiter {
     currentDay: number
   ): number {
     if (dayExceeded) {
-      return ((currentDay + 1) * 24 * 60 * 60 * 1000) - Date.now();
+      return (currentDay + 1) * 24 * 60 * 60 * 1000 - Date.now();
     }
     if (hourExceeded) {
-      return ((currentHour + 1) * 60 * 60 * 1000) - Date.now();
+      return (currentHour + 1) * 60 * 60 * 1000 - Date.now();
     }
     if (minuteExceeded) {
-      return ((currentMinute + 1) * 60 * 1000) - Date.now();
+      return (currentMinute + 1) * 60 * 1000 - Date.now();
     }
     return 60000; // 1 minute default
   }

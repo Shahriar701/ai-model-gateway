@@ -27,7 +27,7 @@ export class LambdaConstruct extends Construct {
     // Create CloudWatch Log Group with retention
     this.logGroup = new LogGroup(this, 'LogGroup', {
       logGroupName: `/aws/lambda/${props.functionName}`,
-      retention: RetentionDays.ONE_MONTH
+      retention: RetentionDays.ONE_MONTH,
     });
 
     // Create Lambda function with best practices
@@ -43,7 +43,7 @@ export class LambdaConstruct extends Construct {
       environment: {
         NODE_ENV: 'production',
         LOG_LEVEL: 'INFO',
-        ...props.environment
+        ...props.environment,
       },
       // Enable X-Ray tracing for observability
       tracing: Tracing.ACTIVE,

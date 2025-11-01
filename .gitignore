@@ -1,8 +1,57 @@
-*.js
-!jest.config.js
-*.d.ts
-node_modules
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# CDK asset staging directory
-.cdk.staging
-cdk.out
+# CDK
+cdk.out/
+cdk.context.json
+
+# Build outputs
+lib/
+dist/
+*.js
+*.d.ts
+*.js.map
+
+# Environment files
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Temporary folders
+tmp/
+temp/
+
+# AWS
+.aws/
+
+# Husky
+.husky/_

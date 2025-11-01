@@ -42,20 +42,20 @@ export abstract class BaseProvider implements ProviderAdapter {
 
   async getHealthStatus(): Promise<ProviderHealthStatus> {
     const startTime = Date.now();
-    
+
     try {
       // Implement provider-specific health check
       await this.performHealthCheck();
-      
+
       return {
         healthy: true,
         latency: Date.now() - startTime,
-        lastChecked: new Date()
+        lastChecked: new Date(),
       };
     } catch (error) {
       return {
         healthy: false,
-        lastChecked: new Date()
+        lastChecked: new Date(),
       };
     }
   }

@@ -18,17 +18,27 @@ export class Logger {
     this.log('INFO', message, meta);
   }
 
+  debug(message: string, meta: Record<string, any> = {}): void {
+    if (process.env.LOG_LEVEL === 'DEBUG') {
+      this.log('DEBUG', message, meta);
+    }
+  }
+
   warn(message: string, meta: Record<string, any> = {}): void {
     this.log('WARN', message, meta);
   }
 
-  error(message: string, error?: Error, meta: Record<string, any> = {}): void {
-    const errorMeta = error ? {
-      errorName: error.name,
-      errorMessage: error.message,
-      errorStack: error.stack
-    } : {};
-    
+  error(message: string, error?: Error | string, meta: Record<string, any> = {}): void {
+    const errorMeta = typeof error === 'string'
+      ? { error }
+      : error
+      ? {
+          errorName: error.name,
+          errorMessage: error.message,
+          errorStack: error.stack,
+        }
+      : {};
+
     this.log('ERROR', message, { ...meta, ...errorMeta });
   }
 
@@ -39,9 +49,12 @@ export class Logger {
       service: this.service,
       message,
       correlationId: this.correlationId,
-      ...meta
+      ...meta,
     };
 
     console.log(JSON.stringify(logEntry));
   }
 }
+
+// Default logger instance
+export const logger = new Logger('ai-model-gateway');

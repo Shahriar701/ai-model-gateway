@@ -7,14 +7,14 @@ export interface EnvironmentConfig {
   // Environment identification
   environment: string;
   region: string;
-  
+
   // Application configuration
   app: {
     name: string;
     version: string;
     logLevel: 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';
   };
-  
+
   // API Gateway configuration
   api: {
     throttling: {
@@ -27,7 +27,7 @@ export interface EnvironmentConfig {
       allowHeaders: string[];
     };
   };
-  
+
   // LLM Provider configuration
   providers: {
     openai: {
@@ -44,14 +44,14 @@ export interface EnvironmentConfig {
       models: string[];
     };
   };
-  
+
   // Caching configuration
   cache: {
     ttl: number;
     maxSize: string;
     evictionPolicy: 'LRU' | 'LFU';
   };
-  
+
   // Monitoring and observability
   monitoring: {
     metricsNamespace: string;
@@ -59,7 +59,7 @@ export interface EnvironmentConfig {
     tracingEnabled: boolean;
     alertingEnabled: boolean;
   };
-  
+
   // Security configuration
   security: {
     encryptionAtRest: boolean;
@@ -72,13 +72,13 @@ export interface EnvironmentConfig {
 export const devConfig: EnvironmentConfig = {
   environment: 'dev',
   region: 'us-east-1',
-  
+
   app: {
     name: 'ai-model-gateway',
     version: '0.1.0',
     logLevel: 'DEBUG',
   },
-  
+
   api: {
     throttling: {
       rateLimit: 100,
@@ -90,7 +90,7 @@ export const devConfig: EnvironmentConfig = {
       allowHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
     },
   },
-  
+
   providers: {
     openai: {
       enabled: true,
@@ -106,20 +106,20 @@ export const devConfig: EnvironmentConfig = {
       models: ['anthropic.claude-3-sonnet-20240229-v1:0', 'meta.llama2-70b-chat-v1'],
     },
   },
-  
+
   cache: {
     ttl: 300, // 5 minutes
     maxSize: '100mb',
     evictionPolicy: 'LRU',
   },
-  
+
   monitoring: {
     metricsNamespace: 'AIGateway/Dev',
     logRetentionDays: 7,
     tracingEnabled: true,
     alertingEnabled: false,
   },
-  
+
   security: {
     encryptionAtRest: true,
     encryptionInTransit: true,
@@ -131,13 +131,13 @@ export const devConfig: EnvironmentConfig = {
 export const prodConfig: EnvironmentConfig = {
   environment: 'prod',
   region: 'us-east-1',
-  
+
   app: {
     name: 'ai-model-gateway',
     version: '0.1.0',
     logLevel: 'INFO',
   },
-  
+
   api: {
     throttling: {
       rateLimit: 1000,
@@ -149,7 +149,7 @@ export const prodConfig: EnvironmentConfig = {
       allowHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
     },
   },
-  
+
   providers: {
     openai: {
       enabled: true,
@@ -169,20 +169,20 @@ export const prodConfig: EnvironmentConfig = {
       ],
     },
   },
-  
+
   cache: {
     ttl: 600, // 10 minutes
     maxSize: '1gb',
     evictionPolicy: 'LRU',
   },
-  
+
   monitoring: {
     metricsNamespace: 'AIGateway/Prod',
     logRetentionDays: 30,
     tracingEnabled: true,
     alertingEnabled: true,
   },
-  
+
   security: {
     encryptionAtRest: true,
     encryptionInTransit: true,
@@ -193,7 +193,7 @@ export const prodConfig: EnvironmentConfig = {
 // Configuration factory
 export const getConfig = (environment?: string): EnvironmentConfig => {
   const env = environment || process.env.ENVIRONMENT || 'dev';
-  
+
   switch (env) {
     case 'prod':
     case 'production':

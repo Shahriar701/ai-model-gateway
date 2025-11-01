@@ -1,11 +1,11 @@
 import { Construct } from 'constructs';
-import { 
-  RestApi, 
-  LambdaIntegration, 
-  Cors, 
+import {
+  RestApi,
+  LambdaIntegration,
+  Cors,
   RequestValidator,
   Model,
-  JsonSchemaType
+  JsonSchemaType,
 } from 'aws-cdk-lib/aws-apigateway';
 import { Function } from 'aws-cdk-lib/aws-lambda';
 
@@ -39,8 +39,8 @@ export class ApiGatewayConstruct extends Construct {
           'Authorization',
           'X-Api-Key',
           'X-Amz-Security-Token',
-          'X-Correlation-ID'
-        ]
+          'X-Correlation-ID',
+        ],
       },
       // Deploy options will be configured at deployment time
     });
@@ -49,16 +49,16 @@ export class ApiGatewayConstruct extends Construct {
     const requestValidator = new RequestValidator(this, 'RequestValidator', {
       restApi: this.api,
       validateRequestBody: true,
-      validateRequestParameters: true
+      validateRequestParameters: true,
     });
 
     // Create Lambda integrations
     const gatewayIntegration = new LambdaIntegration(props.gatewayFunction, {
-      requestTemplates: { 'application/json': '{ "statusCode": "200" }' }
+      requestTemplates: { 'application/json': '{ "statusCode": "200" }' },
     });
 
     const mcpIntegration = new LambdaIntegration(props.mcpFunction, {
-      requestTemplates: { 'application/json': '{ "statusCode": "200" }' }
+      requestTemplates: { 'application/json': '{ "statusCode": "200" }' },
     });
 
     // Define request/response models
@@ -76,35 +76,31 @@ export class ApiGatewayConstruct extends Construct {
               type: JsonSchemaType.OBJECT,
               properties: {
                 role: { type: JsonSchemaType.STRING, enum: ['system', 'user', 'assistant'] },
-                content: { type: JsonSchemaType.STRING }
+                content: { type: JsonSchemaType.STRING },
               },
-              required: ['role', 'content']
-            }
+              required: ['role', 'content'],
+            },
           },
           temperature: { type: JsonSchemaType.NUMBER, minimum: 0, maximum: 2 },
-          maxTokens: { type: JsonSchemaType.INTEGER, minimum: 1, maximum: 4000 }
+          maxTokens: { type: JsonSchemaType.INTEGER, minimum: 1, maximum: 4000 },
         },
-        required: ['model', 'messages']
-      }
+        required: ['model', 'messages'],
+      },
     });
 
     // API Routes
 
     // Main gateway routes
     const v1 = this.api.root.addResource('api').addResource('v1');
-    
+
     // LLM completion endpoint
     const completions = v1.addResource('completions');
     completions.addMethod('POST', gatewayIntegration, {
       requestValidator,
       requestModels: {
-        'application/json': llmRequestModel
+        'application/json': llmRequestModel,
       },
-      methodResponses: [
-        { statusCode: '200' },
-        { statusCode: '400' },
-        { statusCode: '429' }
-      ]
+      methodResponses: [{ statusCode: '200' }, { statusCode: '400' }, { statusCode: '429' }],
     });
 
     // Health check endpoint
@@ -113,27 +109,27 @@ export class ApiGatewayConstruct extends Construct {
 
     // MCP endpoints
     const mcp = v1.addResource('mcp');
-    
+
     // MCP tools endpoint
     const tools = mcp.addResource('tools');
     tools.addMethod('POST', mcpIntegration, {
-      requestValidator
+      requestValidator,
     });
 
     // MCP resources endpoint
     const resources = mcp.addResource('resources');
     resources.addMethod('GET', mcpIntegration);
     resources.addMethod('POST', mcpIntegration, {
-      requestValidator
+      requestValidator,
     });
 
     // Product search endpoint (convenience endpoint for direct product queries)
     const products = v1.addResource('products');
     products.addMethod('GET', mcpIntegration);
-    
+
     const productSearch = products.addResource('search');
     productSearch.addMethod('POST', mcpIntegration, {
-      requestValidator
+      requestValidator,
     });
   }
 }

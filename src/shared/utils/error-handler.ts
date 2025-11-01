@@ -13,27 +13,54 @@ export class ErrorHandler {
     logger.setCorrelationId(correlationId);
 
     if (error instanceof ValidationError) {
-      return this.createErrorResponse(400, ErrorType.INVALID_REQUEST, error.message, correlationId, error.details);
+      return this.createErrorResponse(
+        400,
+        ErrorType.INVALID_REQUEST,
+        error.message,
+        correlationId,
+        error.details
+      );
     }
 
     if (error instanceof AuthenticationError) {
-      return this.createErrorResponse(401, ErrorType.AUTHENTICATION_ERROR, error.message, correlationId);
+      return this.createErrorResponse(
+        401,
+        ErrorType.AUTHENTICATION_ERROR,
+        error.message,
+        correlationId
+      );
     }
 
     if (error instanceof RateLimitError) {
-      return this.createErrorResponse(429, ErrorType.RATE_LIMIT_EXCEEDED, error.message, correlationId, {
-        retryAfter: error.retryAfter
-      });
+      return this.createErrorResponse(
+        429,
+        ErrorType.RATE_LIMIT_EXCEEDED,
+        error.message,
+        correlationId,
+        {
+          retryAfter: error.retryAfter,
+        }
+      );
     }
 
     if (error instanceof ProviderError) {
-      return this.createErrorResponse(503, ErrorType.PROVIDER_UNAVAILABLE, error.message, correlationId);
+      return this.createErrorResponse(
+        503,
+        ErrorType.PROVIDER_UNAVAILABLE,
+        error.message,
+        correlationId
+      );
     }
 
     // Log unexpected errors
     logger.error('Unexpected error occurred', error as Error);
 
-    return this.createErrorResponse(500, ErrorType.INTERNAL_ERROR, 'Internal server error', correlationId);
+    return this.createErrorResponse(
+      500,
+      ErrorType.INTERNAL_ERROR,
+      'Internal server error',
+      correlationId
+    );
   }
 
   private static createErrorResponse(
@@ -49,26 +76,29 @@ export class ErrorHandler {
         message,
         code: `${errorType}_${statusCode}`,
         details,
-        retryAfter: details?.retryAfter
+        retryAfter: details?.retryAfter,
       },
       requestId: correlationId,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
 
     return {
       statusCode,
       headers: {
         'Content-Type': 'application/json',
-        'X-Correlation-ID': correlationId
+        'X-Correlation-ID': correlationId,
       },
-      body: JSON.stringify(errorResponse)
+      body: JSON.stringify(errorResponse),
     };
   }
 }
 
 // Custom error classes
 export class ValidationError extends Error {
-  constructor(message: string, public details?: Record<string, string>) {
+  constructor(
+    message: string,
+    public details?: Record<string, string>
+  ) {
     super(message);
     this.name = 'ValidationError';
   }
@@ -82,14 +112,20 @@ export class AuthenticationError extends Error {
 }
 
 export class RateLimitError extends Error {
-  constructor(message: string, public retryAfter: number) {
+  constructor(
+    message: string,
+    public retryAfter: number
+  ) {
     super(message);
     this.name = 'RateLimitError';
   }
 }
 
 export class ProviderError extends Error {
-  constructor(message: string, public provider: string) {
+  constructor(
+    message: string,
+    public provider: string
+  ) {
     super(message);
     this.name = 'ProviderError';
   }

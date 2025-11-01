@@ -16,6 +16,7 @@ aws configure
 ```
 
 Enter your:
+
 - AWS Access Key ID
 - AWS Secret Access Key
 - Default region (e.g., `us-east-1`)
@@ -44,6 +45,7 @@ npm run deploy:dev
 ```
 
 This will:
+
 - Build the TypeScript code
 - Synthesize CloudFormation templates
 - Deploy all stacks to AWS
@@ -126,6 +128,7 @@ aws ssm put-parameter \
 ### AWS Bedrock
 
 Bedrock uses IAM roles, so ensure your Lambda execution role has:
+
 - `bedrock:InvokeModel` permission
 
 ## Monitoring
@@ -143,6 +146,7 @@ aws logs tail /aws/lambda/ai-model-gateway-mcp-dev --follow
 ### CloudWatch Metrics
 
 Navigate to CloudWatch Console to view:
+
 - Lambda invocations
 - API Gateway requests
 - DynamoDB operations
@@ -151,6 +155,7 @@ Navigate to CloudWatch Console to view:
 ### X-Ray Tracing
 
 Navigate to X-Ray Console to view:
+
 - Request traces
 - Service map
 - Performance bottlenecks
@@ -158,12 +163,14 @@ Navigate to X-Ray Console to view:
 ## Cost Estimation
 
 ### Development Environment (Low Traffic)
+
 - Lambda: ~$0.20/month (1M requests)
 - DynamoDB: ~$0.25/month (on-demand)
 - API Gateway: ~$3.50/month (1M requests)
 - **Total: ~$4/month**
 
 ### Production Environment (Moderate Traffic)
+
 - Lambda: ~$20/month (100M requests)
 - DynamoDB: ~$25/month
 - API Gateway: ~$350/month (100M requests)
@@ -186,11 +193,13 @@ npm run destroy
 ### Deployment Fails
 
 1. **Check AWS credentials**:
+
    ```bash
    aws sts get-caller-identity
    ```
 
 2. **Check CDK bootstrap**:
+
    ```bash
    cdk bootstrap
    ```
@@ -202,6 +211,7 @@ npm run destroy
 ### Lambda Function Errors
 
 1. **Check CloudWatch Logs**:
+
    ```bash
    aws logs tail /aws/lambda/FUNCTION_NAME --follow
    ```
@@ -244,6 +254,7 @@ Add these secrets to your GitHub repository:
 ## Support
 
 For issues or questions:
+
 - Check CloudWatch Logs
 - Review X-Ray traces
 - Check GitHub Issues

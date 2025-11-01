@@ -1,10 +1,10 @@
-import { 
-  LLMRequest, 
-  LLMResponse, 
-  ProviderConfig, 
+import {
+  LLMRequest,
+  LLMResponse,
+  ProviderConfig,
   ProviderSelectionCriteria,
   RoutingStrategy,
-  ProviderType
+  ProviderType,
 } from '../../shared/types';
 import { ProviderAdapter } from '../providers/base-provider';
 import { Logger } from '../../shared/utils';
@@ -30,7 +30,7 @@ export class ProviderRouter {
         failureCount: 0,
         totalLatency: 0,
         totalCost: 0,
-        lastUsed: new Date()
+        lastUsed: new Date(),
       });
     });
 
@@ -41,7 +41,7 @@ export class ProviderRouter {
 
     logger.info('Provider router initialized', {
       providerCount: providers.length,
-      configCount: configs.length
+      configCount: configs.length,
     });
   }
 
@@ -58,7 +58,7 @@ export class ProviderRouter {
     logger.info('Routing LLM request', {
       requestId,
       model: request.model,
-      strategy: criteria?.strategy || 'default'
+      strategy: criteria?.strategy || 'default',
     });
 
     try {
@@ -71,7 +71,7 @@ export class ProviderRouter {
 
       logger.info('Provider selected', {
         requestId,
-        provider: provider.name
+        provider: provider.name,
       });
 
       // Execute request with retry logic
@@ -84,7 +84,7 @@ export class ProviderRouter {
         requestId,
         provider: provider.name,
         latency: response.latency,
-        cost: response.cost.total
+        cost: response.cost.total,
       });
 
       return response;
@@ -113,16 +113,12 @@ export class ProviderRouter {
     // Apply exclusions
     let candidates = availableProviders;
     if (criteria?.excludedProviders) {
-      candidates = candidates.filter(
-        p => !criteria.excludedProviders!.includes(p.name)
-      );
+      candidates = candidates.filter(p => !criteria.excludedProviders!.includes(p.name));
     }
 
     // Apply preferences
     if (criteria?.preferredProviders && criteria.preferredProviders.length > 0) {
-      const preferred = candidates.filter(
-        p => criteria.preferredProviders!.includes(p.name)
-      );
+      const preferred = candidates.filter(p => criteria.preferredProviders!.includes(p.name));
       if (preferred.length > 0) {
         candidates = preferred;
       }
@@ -132,16 +128,16 @@ export class ProviderRouter {
     switch (strategy) {
       case RoutingStrategy.COST_OPTIMIZED:
         return this.selectByCost(candidates, request);
-      
+
       case RoutingStrategy.LATENCY_OPTIMIZED:
         return this.selectByLatency(candidates);
-      
+
       case RoutingStrategy.PRIORITY_BASED:
         return this.selectByPriority(candidates);
-      
+
       case RoutingStrategy.ROUND_ROBIN:
         return this.selectRoundRobin(candidates);
-      
+
       default:
         return candidates[0];
     }
@@ -155,7 +151,7 @@ export class ProviderRouter {
 
     for (const [name, provider] of this.providers) {
       const config = this.providerConfigs.get(name);
-      
+
       if (!config || !config.enabled) {
         continue;
       }
@@ -193,15 +189,17 @@ export class ProviderRouter {
     return providers.reduce((best, current) => {
       const bestMetrics = this.providerMetrics.get(best.name)!;
       const currentMetrics = this.providerMetrics.get(current.name)!;
-      
-      const bestAvgLatency = bestMetrics.requestCount > 0
-        ? bestMetrics.totalLatency / bestMetrics.requestCount
-        : Infinity;
-      
-      const currentAvgLatency = currentMetrics.requestCount > 0
-        ? currentMetrics.totalLatency / currentMetrics.requestCount
-        : Infinity;
-      
+
+      const bestAvgLatency =
+        bestMetrics.requestCount > 0
+          ? bestMetrics.totalLatency / bestMetrics.requestCount
+          : Infinity;
+
+      const currentAvgLatency =
+        currentMetrics.requestCount > 0
+          ? currentMetrics.totalLatency / currentMetrics.requestCount
+          : Infinity;
+
       return currentAvgLatency < bestAvgLatency ? current : best;
     });
   }
@@ -248,7 +246,7 @@ export class ProviderRouter {
         requestId,
         provider: provider.name,
         attempt,
-        error: (error as Error).message
+        error: (error as Error).message,
       });
 
       // Update failure metrics
@@ -301,17 +299,12 @@ export class ProviderRouter {
     const metrics = this.providerMetrics.get(providerName);
     if (!metrics) return null;
 
-    const successRate = metrics.requestCount > 0
-      ? (metrics.successCount / metrics.requestCount) * 100
-      : 0;
+    const successRate =
+      metrics.requestCount > 0 ? (metrics.successCount / metrics.requestCount) * 100 : 0;
 
-    const avgLatency = metrics.successCount > 0
-      ? metrics.totalLatency / metrics.successCount
-      : 0;
+    const avgLatency = metrics.successCount > 0 ? metrics.totalLatency / metrics.successCount : 0;
 
-    const avgCost = metrics.successCount > 0
-      ? metrics.totalCost / metrics.successCount
-      : 0;
+    const avgCost = metrics.successCount > 0 ? metrics.totalCost / metrics.successCount : 0;
 
     return {
       providerName,
@@ -322,7 +315,7 @@ export class ProviderRouter {
       avgLatency,
       avgCost,
       totalCost: metrics.totalCost,
-      lastUsed: metrics.lastUsed
+      lastUsed: metrics.lastUsed,
     };
   }
 

@@ -20,18 +20,12 @@ describe('Logger', () => {
 
       logger.info(message, meta);
 
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('"level":"INFO"')
-      );
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('"service":"TestService"')
-      );
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('"level":"INFO"'));
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('"service":"TestService"'));
       expect(consoleSpy).toHaveBeenCalledWith(
         expect.stringContaining('"message":"Test info message"')
       );
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('"userId":"123"')
-      );
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('"userId":"123"'));
     });
 
     it('should include correlation ID when set', () => {
@@ -50,12 +44,8 @@ describe('Logger', () => {
       const error = new Error('Test error');
       logger.error('Error occurred', error);
 
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('"level":"ERROR"')
-      );
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('"errorName":"Error"')
-      );
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('"level":"ERROR"'));
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('"errorName":"Error"'));
       expect(consoleSpy).toHaveBeenCalledWith(
         expect.stringContaining('"errorMessage":"Test error"')
       );

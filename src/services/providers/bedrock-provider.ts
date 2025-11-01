@@ -29,7 +29,7 @@ export class BedrockProvider extends BaseProvider {
       requestId,
       model: request.model,
       messageCount: request.messages.length,
-      region: this.region
+      region: this.region,
     });
 
     try {
@@ -38,34 +38,36 @@ export class BedrockProvider extends BaseProvider {
       const mockResponse: LLMResponse = {
         id: requestId,
         model: request.model,
-        choices: [{
-          index: 0,
-          message: {
-            role: 'assistant',
-            content: 'This is a mock response from AWS Bedrock provider'
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: 'assistant',
+              content: 'This is a mock response from AWS Bedrock provider',
+            },
+            finishReason: 'stop',
           },
-          finishReason: 'stop'
-        }],
+        ],
         usage: {
           promptTokens: this.calculatePromptTokens(request.messages),
           completionTokens: 45,
-          totalTokens: this.calculatePromptTokens(request.messages) + 45
+          totalTokens: this.calculatePromptTokens(request.messages) + 45,
         },
         cost: {
           total: this.estimateCost(request),
           promptCost: (this.calculatePromptTokens(request.messages) / 1000) * 0.008,
           completionCost: (45 / 1000) * 0.024,
-          currency: 'USD'
+          currency: 'USD',
         },
         latency: Date.now() - startTime,
-        provider: this.name
+        provider: this.name,
       };
 
       logger.info('Bedrock completion generated successfully', {
         requestId,
         latency: mockResponse.latency,
         totalTokens: mockResponse.usage.totalTokens,
-        cost: mockResponse.cost
+        cost: mockResponse.cost,
       });
 
       return mockResponse;
@@ -78,14 +80,14 @@ export class BedrockProvider extends BaseProvider {
   estimateCost(request: LLMRequest): number {
     const promptTokens = this.calculatePromptTokens(request.messages);
     const estimatedCompletionTokens = request.maxTokens || 100;
-    
+
     // AWS Bedrock Claude pricing (approximate)
     const inputCostPer1K = 0.008;
     const outputCostPer1K = 0.024;
-    
+
     const inputCost = (promptTokens / 1000) * inputCostPer1K;
     const outputCost = (estimatedCompletionTokens / 1000) * outputCostPer1K;
-    
+
     return inputCost + outputCost;
   }
 

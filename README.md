@@ -67,18 +67,21 @@ npm run destroy
 ## 📊 Key Features
 
 ### Multi-Provider Support
+
 - **OpenAI Integration**: GPT-4, GPT-3.5-turbo with streaming support
 - **AWS Bedrock**: Claude, Llama2, and other foundation models
 - **Intelligent Routing**: Cost and latency-based provider selection
 - **Automatic Failover**: Circuit breaker pattern with exponential backoff
 
 ### MCP Protocol Implementation
+
 - **Product Data Integration**: Real-time e-commerce product information
 - **Structured Search**: Category, price, and availability filtering
 - **Context-Aware Responses**: LLM responses enriched with product data
 - **WebSocket Support**: Real-time MCP communication
 
 ### Production-Grade Infrastructure
+
 - **Auto-Scaling**: Lambda functions with reserved concurrency
 - **High Availability**: Multi-AZ deployment with Redis clustering
 - **Security**: VPC isolation, encryption at rest and in transit
@@ -86,16 +89,16 @@ npm run destroy
 
 ## 🛠️ Development Commands
 
-| Command | Description |
-|---------|-------------|
-| `npm run build` | Compile TypeScript to JavaScript |
-| `npm run watch` | Watch for changes and compile |
-| `npm run test` | Run Jest unit tests |
-| `npm run test:coverage` | Run tests with coverage report |
-| `npm run lint` | Run ESLint for code quality |
-| `npm run format` | Format code with Prettier |
-| `npm run cdk` | Run CDK commands |
-| `npm run synth` | Synthesize CloudFormation templates |
+| Command                 | Description                         |
+| ----------------------- | ----------------------------------- |
+| `npm run build`         | Compile TypeScript to JavaScript    |
+| `npm run watch`         | Watch for changes and compile       |
+| `npm run test`          | Run Jest unit tests                 |
+| `npm run test:coverage` | Run tests with coverage report      |
+| `npm run lint`          | Run ESLint for code quality         |
+| `npm run format`        | Format code with Prettier           |
+| `npm run cdk`           | Run CDK commands                    |
+| `npm run synth`         | Synthesize CloudFormation templates |
 
 ## 📁 Project Structure
 
