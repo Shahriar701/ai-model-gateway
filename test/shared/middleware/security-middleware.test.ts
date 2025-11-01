@@ -5,7 +5,9 @@ import { SecurityEventType } from '../../../src/shared/types/security-types';
 describe('SecurityMiddleware', () => {
   const mockCorrelationId = 'test-correlation-id';
 
-  const createMockEvent = (overrides: Partial<APIGatewayProxyEvent> = {}): APIGatewayProxyEvent => ({
+  const createMockEvent = (
+    overrides: Partial<APIGatewayProxyEvent> = {}
+  ): APIGatewayProxyEvent => ({
     httpMethod: 'POST',
     path: '/api/v1/test',
     headers: {
@@ -157,8 +159,8 @@ describe('SecurityMiddleware', () => {
         'Referrer-Policy': 'strict-origin-when-cross-origin',
         'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
         'Cache-Control': 'no-store, no-cache, must-revalidate, private',
-        'Pragma': 'no-cache',
-        'Expires': '0',
+        Pragma: 'no-cache',
+        Expires: '0',
         'X-Correlation-ID': mockCorrelationId,
       });
     });
@@ -189,7 +191,7 @@ describe('SecurityMiddleware', () => {
 
     it('should allow logging within rate limit', () => {
       const eventType = SecurityEventType.DANGEROUS_PATTERN_DETECTED;
-      
+
       for (let i = 0; i < 10; i++) {
         const shouldLog = SecurityMiddleware.shouldLogSecurityEvent(eventType, mockCorrelationId);
         expect(shouldLog).toBe(true);
@@ -198,12 +200,12 @@ describe('SecurityMiddleware', () => {
 
     it('should prevent logging when rate limit exceeded', () => {
       const eventType = SecurityEventType.DANGEROUS_PATTERN_DETECTED;
-      
+
       // Exceed the rate limit
       for (let i = 0; i < 11; i++) {
         SecurityMiddleware.shouldLogSecurityEvent(eventType, mockCorrelationId);
       }
-      
+
       const shouldLog = SecurityMiddleware.shouldLogSecurityEvent(eventType, mockCorrelationId);
       expect(shouldLog).toBe(false);
     });

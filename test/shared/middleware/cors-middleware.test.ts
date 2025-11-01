@@ -4,7 +4,9 @@ import { CorsMiddleware } from '../../../src/shared/middleware/cors-middleware';
 describe('CorsMiddleware', () => {
   const mockCorrelationId = 'test-correlation-id';
 
-  const createMockEvent = (overrides: Partial<APIGatewayProxyEvent> = {}): APIGatewayProxyEvent => ({
+  const createMockEvent = (
+    overrides: Partial<APIGatewayProxyEvent> = {}
+  ): APIGatewayProxyEvent => ({
     httpMethod: 'OPTIONS',
     path: '/api/v1/test',
     headers: {},
@@ -58,7 +60,7 @@ describe('CorsMiddleware', () => {
     it('should handle valid preflight request from allowed origin', () => {
       const event = createMockEvent({
         headers: {
-          'Origin': 'https://app.example.com',
+          Origin: 'https://app.example.com',
           'Access-Control-Request-Method': 'POST',
           'Access-Control-Request-Headers': 'Content-Type, Authorization',
         },
@@ -90,7 +92,7 @@ describe('CorsMiddleware', () => {
     it('should reject preflight request with disallowed method', () => {
       const event = createMockEvent({
         headers: {
-          'Origin': 'https://app.example.com',
+          Origin: 'https://app.example.com',
           'Access-Control-Request-Method': 'TRACE',
         },
       });
@@ -107,7 +109,7 @@ describe('CorsMiddleware', () => {
     it('should reject preflight request with disallowed headers', () => {
       const event = createMockEvent({
         headers: {
-          'Origin': 'https://app.example.com',
+          Origin: 'https://app.example.com',
           'Access-Control-Request-Method': 'POST',
           'Access-Control-Request-Headers': 'Content-Type, X-Dangerous-Header',
         },
@@ -125,7 +127,7 @@ describe('CorsMiddleware', () => {
     it('should allow all requested headers if they are in allowed list', () => {
       const event = createMockEvent({
         headers: {
-          'Origin': 'https://app.example.com',
+          Origin: 'https://app.example.com',
           'Access-Control-Request-Method': 'POST',
           'Access-Control-Request-Headers': 'Content-Type, Authorization, X-API-Key',
         },
@@ -152,7 +154,7 @@ describe('CorsMiddleware', () => {
 
       const event = createMockEvent({
         headers: {
-          'Origin': 'https://app.example.com',
+          Origin: 'https://app.example.com',
         },
       });
 
@@ -175,7 +177,7 @@ describe('CorsMiddleware', () => {
 
       const event = createMockEvent({
         headers: {
-          'Origin': 'https://malicious.com',
+          Origin: 'https://malicious.com',
         },
       });
 
@@ -218,7 +220,7 @@ describe('CorsMiddleware', () => {
 
       const event = createMockEvent({
         headers: {
-          'Origin': 'https://app.example.com',
+          Origin: 'https://app.example.com',
         },
       });
 
@@ -270,7 +272,7 @@ describe('CorsMiddleware', () => {
       };
 
       const event = createMockEvent({
-        headers: { 'Origin': 'http://localhost:3000' },
+        headers: { Origin: 'http://localhost:3000' },
       });
 
       const result = CorsMiddleware.addCorsHeaders(response, event, mockCorrelationId);
@@ -288,7 +290,7 @@ describe('CorsMiddleware', () => {
       };
 
       const event = createMockEvent({
-        headers: { 'Origin': 'http://192.168.1.100:3000' },
+        headers: { Origin: 'http://192.168.1.100:3000' },
       });
 
       const result = CorsMiddleware.addCorsHeaders(response, event, mockCorrelationId);

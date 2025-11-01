@@ -11,13 +11,14 @@ export class RequestSigningMiddleware {
   private static readonly SIGNATURE_HEADER = 'X-Signature';
   private static readonly TIMESTAMP_HEADER = 'X-Timestamp';
   private static readonly NONCE_HEADER = 'X-Nonce';
-  
+
   private static readonly MAX_TIMESTAMP_SKEW = 300000; // 5 minutes in milliseconds
   private static readonly SIGNATURE_VERSION = 'v1';
-  
+
   // In production, this should come from AWS Secrets Manager or Parameter Store
-  private static readonly SIGNING_SECRET = process.env.REQUEST_SIGNING_SECRET || 'default-secret-key';
-  
+  private static readonly SIGNING_SECRET =
+    process.env.REQUEST_SIGNING_SECRET || 'default-secret-key';
+
   // Nonce cache to prevent replay attacks (in production, use Redis)
   private static nonceCache = new Set<string>();
   private static readonly MAX_NONCE_CACHE_SIZE = 10000;
@@ -45,9 +46,12 @@ export class RequestSigningMiddleware {
       }
 
       // Extract signature components
-      const signature = event.headers[this.SIGNATURE_HEADER] || event.headers[this.SIGNATURE_HEADER.toLowerCase()];
-      const timestamp = event.headers[this.TIMESTAMP_HEADER] || event.headers[this.TIMESTAMP_HEADER.toLowerCase()];
-      const nonce = event.headers[this.NONCE_HEADER] || event.headers[this.NONCE_HEADER.toLowerCase()];
+      const signature =
+        event.headers[this.SIGNATURE_HEADER] || event.headers[this.SIGNATURE_HEADER.toLowerCase()];
+      const timestamp =
+        event.headers[this.TIMESTAMP_HEADER] || event.headers[this.TIMESTAMP_HEADER.toLowerCase()];
+      const nonce =
+        event.headers[this.NONCE_HEADER] || event.headers[this.NONCE_HEADER.toLowerCase()];
 
       if (!signature || !timestamp || !nonce) {
         logger.warn('Missing signature headers', {
@@ -72,7 +76,13 @@ export class RequestSigningMiddleware {
       }
 
       // Verify signature
-      const signatureValidation = this.verifySignature(event, signature, timestamp, nonce, correlationId);
+      const signatureValidation = this.verifySignature(
+        event,
+        signature,
+        timestamp,
+        nonce,
+        correlationId
+      );
       if (!signatureValidation.success) {
         return signatureValidation;
       }
@@ -82,7 +92,6 @@ export class RequestSigningMiddleware {
 
       logger.debug('Request signature verification successful', { correlationId });
       return { success: true };
-
     } catch (error) {
       logger.error('Request signature verification failed', error as Error, { correlationId });
       return { success: false, error: 'Signature verification failed' };
@@ -127,11 +136,7 @@ export class RequestSigningMiddleware {
    */
   private static requiresSignatureVerification(path: string): boolean {
     // Endpoints that require signature verification
-    const secureEndpoints = [
-      '/api/v1/admin/',
-      '/api/v1/config/',
-      '/api/v1/keys/',
-    ];
+    const secureEndpoints = ['/api/v1/admin/', '/api/v1/config/', '/api/v1/keys/'];
 
     return secureEndpoints.some(endpoint => path.startsWith(endpoint));
   }
@@ -255,24 +260,16 @@ export class RequestSigningMiddleware {
     const normalizedMethod = method.toUpperCase();
     const normalizedPath = path;
     const normalizedBody = body || '';
-    
+
     // Create canonical string
-    return [
-      normalizedMethod,
-      normalizedPath,
-      normalizedBody,
-      timestamp,
-      nonce,
-    ].join('\n');
+    return [normalizedMethod, normalizedPath, normalizedBody, timestamp, nonce].join('\n');
   }
 
   /**
    * Create HMAC signature
    */
   private static createSignature(payload: string): string {
-    return createHmac('sha256', this.SIGNING_SECRET)
-      .update(payload, 'utf8')
-      .digest('hex');
+    return createHmac('sha256', this.SIGNING_SECRET).update(payload, 'utf8').digest('hex');
   }
 
   /**
@@ -281,12 +278,12 @@ export class RequestSigningMiddleware {
   private static generateNonce(): string {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let result = '';
-    
+
     // Generate 32 character nonce
     for (let i = 0; i < 32; i++) {
       result += chars.charAt(Math.floor(Math.random() * chars.length));
     }
-    
+
     return result;
   }
 

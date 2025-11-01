@@ -8,7 +8,7 @@ export class SecurityLogger {
   private static instance: SecurityLogger;
   private logger: Logger;
   private eventCounts: Map<string, { count: number; lastReset: number }> = new Map();
-  
+
   // Rate limiting for security events to prevent log flooding
   private static readonly MAX_EVENTS_PER_MINUTE = 100;
   private static readonly RATE_LIMIT_WINDOW = 60000; // 1 minute
@@ -36,8 +36,8 @@ export class SecurityLogger {
     userAgent?: string,
     reason?: string
   ): void {
-    const eventType = success 
-      ? SecurityEventType.AUTHENTICATION_FAILURE 
+    const eventType = success
+      ? SecurityEventType.AUTHENTICATION_FAILURE
       : SecurityEventType.AUTHENTICATION_FAILURE;
 
     if (!this.shouldLogEvent(eventType, correlationId)) {
@@ -112,9 +112,10 @@ export class SecurityLogger {
     sourceIp?: string,
     userAgent?: string
   ): void {
-    const eventType = patternType === 'SQL_INJECTION' 
-      ? SecurityEventType.SQL_INJECTION_ATTEMPT 
-      : SecurityEventType.DANGEROUS_PATTERN_DETECTED;
+    const eventType =
+      patternType === 'SQL_INJECTION'
+        ? SecurityEventType.SQL_INJECTION_ATTEMPT
+        : SecurityEventType.DANGEROUS_PATTERN_DETECTED;
 
     if (!this.shouldLogEvent(eventType, correlationId)) {
       return;
@@ -352,13 +353,15 @@ export class SecurityLogger {
       }
       return config;
     }
-    
+
     if (typeof config === 'object' && config !== null) {
       const sanitized: any = {};
       for (const [key, value] of Object.entries(config)) {
-        if (key.toLowerCase().includes('secret') || 
-            key.toLowerCase().includes('password') || 
-            key.toLowerCase().includes('key')) {
+        if (
+          key.toLowerCase().includes('secret') ||
+          key.toLowerCase().includes('password') ||
+          key.toLowerCase().includes('key')
+        ) {
           sanitized[key] = '***';
         } else {
           sanitized[key] = this.sanitizeConfigForLogging(value);
@@ -366,7 +369,7 @@ export class SecurityLogger {
       }
       return sanitized;
     }
-    
+
     return config;
   }
 
@@ -380,7 +383,7 @@ export class SecurityLogger {
     // - AWS Security Hub
     // - Third-party SIEM systems
     // - Slack/PagerDuty for critical alerts
-    
+
     // For now, we'll just log at debug level
     this.logger.debug('Security event sent to monitoring', {
       eventType: event.type,
@@ -403,7 +406,7 @@ export class SecurityLogger {
     // - Create AWS CloudWatch alarm
     // - Send Slack notification
     // - Update security dashboard
-    
+
     this.logger.error('SECURITY ALERT TRIGGERED', undefined, {
       eventType: event.type,
       correlationId: event.correlationId,

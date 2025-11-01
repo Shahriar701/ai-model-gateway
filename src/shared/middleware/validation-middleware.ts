@@ -78,7 +78,7 @@ export class ValidationMiddleware {
 
       // Check if body is required for this endpoint
       const requiresBody = this.endpointRequiresBody(event.path, event.httpMethod);
-      
+
       if (requiresBody && !event.body) {
         return { success: false, error: 'Request body is required' };
       }
@@ -89,7 +89,7 @@ export class ValidationMiddleware {
 
       // Validate content type
       const contentType = event.headers['Content-Type'] || event.headers['content-type'] || '';
-      
+
       if (!contentType.includes('application/json')) {
         logger.warn('Unsupported content type', {
           correlationId,
@@ -155,7 +155,7 @@ export class ValidationMiddleware {
   ): { success: boolean; error?: string } {
     try {
       const queryParams = event.queryStringParameters || {};
-      
+
       // Check total number of parameters
       const paramCount = Object.keys(queryParams).length;
       if (paramCount > 50) {
@@ -182,7 +182,7 @@ export class ValidationMiddleware {
         }
 
         // Check for dangerous characters in parameter names
-        if (!/^[a-zA-Z0-9_\-\.]+$/.test(key)) {
+        if (!/^[a-zA-Z0-9_\-.]+$/.test(key)) {
           logger.warn('Invalid query parameter name', {
             correlationId,
             parameterName: key,
@@ -207,13 +207,11 @@ export class ValidationMiddleware {
    * Check if endpoint requires a request body
    */
   private static endpointRequiresBody(path: string, method: string): boolean {
-    const postEndpoints = [
-      '/api/v1/completions',
-      '/api/v1/mcp/search',
-      '/api/v1/auth/token',
-    ];
+    const postEndpoints = ['/api/v1/completions', '/api/v1/mcp/search', '/api/v1/auth/token'];
 
-    return method.toUpperCase() === 'POST' && postEndpoints.some(endpoint => path.startsWith(endpoint));
+    return (
+      method.toUpperCase() === 'POST' && postEndpoints.some(endpoint => path.startsWith(endpoint))
+    );
   }
 
   /**
@@ -221,7 +219,7 @@ export class ValidationMiddleware {
    */
   private static calculateObjectComplexity(obj: any, depth = 0): number {
     if (depth > 10) return 1000; // Prevent infinite recursion
-    
+
     if (typeof obj !== 'object' || obj === null) {
       return 1;
     }
@@ -256,9 +254,9 @@ export class ValidationMiddleware {
               correlationId,
               errors: error.errors,
             });
-            return { 
-              success: false, 
-              error: `Validation failed: ${error.errors.map(e => e.message).join(', ')}` 
+            return {
+              success: false,
+              error: `Validation failed: ${error.errors.map(e => e.message).join(', ')}`,
             };
           }
           throw error;
@@ -275,9 +273,9 @@ export class ValidationMiddleware {
               correlationId,
               errors: error.errors,
             });
-            return { 
-              success: false, 
-              error: `Validation failed: ${error.errors.map(e => e.message).join(', ')}` 
+            return {
+              success: false,
+              error: `Validation failed: ${error.errors.map(e => e.message).join(', ')}`,
             };
           }
           throw error;

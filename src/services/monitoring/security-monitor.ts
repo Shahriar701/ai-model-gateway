@@ -8,7 +8,7 @@ export class SecurityMonitor {
   private static instance: SecurityMonitor;
   private logger: Logger;
   private securityLogger: SecurityLogger;
-  
+
   // Thresholds for triggering alerts
   private static readonly ALERT_THRESHOLDS = {
     authFailuresPerMinute: 10,
@@ -20,10 +20,10 @@ export class SecurityMonitor {
 
   // Time windows for analysis
   private static readonly TIME_WINDOWS = {
-    realTime: 60000,      // 1 minute
-    shortTerm: 300000,    // 5 minutes
-    mediumTerm: 1800000,  // 30 minutes
-    longTerm: 3600000,    // 1 hour
+    realTime: 60000, // 1 minute
+    shortTerm: 300000, // 5 minutes
+    mediumTerm: 1800000, // 30 minutes
+    longTerm: 3600000, // 1 hour
   };
 
   private constructor() {
@@ -46,13 +46,13 @@ export class SecurityMonitor {
       const realTimeMetrics = this.securityLogger.generateSecurityMetrics(
         SecurityMonitor.TIME_WINDOWS.realTime
       );
-      
+
       const shortTermMetrics = this.securityLogger.generateSecurityMetrics(
         SecurityMonitor.TIME_WINDOWS.shortTerm
       );
 
       const alerts = this.checkForAlerts(realTimeMetrics, shortTermMetrics);
-      
+
       const analysis: SecurityAnalysisResult = {
         timestamp: new Date().toISOString(),
         realTimeMetrics,
@@ -92,7 +92,10 @@ export class SecurityMonitor {
     const alerts: SecurityAlert[] = [];
 
     // Check authentication failures
-    if (realTimeMetrics.events.authenticationFailures > SecurityMonitor.ALERT_THRESHOLDS.authFailuresPerMinute) {
+    if (
+      realTimeMetrics.events.authenticationFailures >
+      SecurityMonitor.ALERT_THRESHOLDS.authFailuresPerMinute
+    ) {
       alerts.push({
         type: 'HIGH_AUTH_FAILURES',
         severity: 'HIGH',
@@ -105,7 +108,10 @@ export class SecurityMonitor {
     }
 
     // Check dangerous patterns
-    if (realTimeMetrics.events.dangerousPatterns > SecurityMonitor.ALERT_THRESHOLDS.dangerousPatternsPerMinute) {
+    if (
+      realTimeMetrics.events.dangerousPatterns >
+      SecurityMonitor.ALERT_THRESHOLDS.dangerousPatternsPerMinute
+    ) {
       alerts.push({
         type: 'DANGEROUS_PATTERNS_DETECTED',
         severity: 'CRITICAL',
@@ -118,7 +124,10 @@ export class SecurityMonitor {
     }
 
     // Check rate limit exceeded events
-    if (realTimeMetrics.events.rateLimitExceeded > SecurityMonitor.ALERT_THRESHOLDS.rateLimitExceededPerMinute) {
+    if (
+      realTimeMetrics.events.rateLimitExceeded >
+      SecurityMonitor.ALERT_THRESHOLDS.rateLimitExceededPerMinute
+    ) {
       alerts.push({
         type: 'HIGH_RATE_LIMIT_VIOLATIONS',
         severity: 'MEDIUM',
@@ -131,7 +140,10 @@ export class SecurityMonitor {
     }
 
     // Check oversized requests
-    if (realTimeMetrics.events.oversizedRequests > SecurityMonitor.ALERT_THRESHOLDS.oversizedRequestsPerMinute) {
+    if (
+      realTimeMetrics.events.oversizedRequests >
+      SecurityMonitor.ALERT_THRESHOLDS.oversizedRequestsPerMinute
+    ) {
       alerts.push({
         type: 'OVERSIZED_REQUESTS',
         severity: 'MEDIUM',
@@ -144,8 +156,10 @@ export class SecurityMonitor {
     }
 
     // Check for coordinated attacks (multiple IPs with similar patterns)
-    if (realTimeMetrics.topSourceIps.length > 5 && 
-        realTimeMetrics.events.authenticationFailures > 20) {
+    if (
+      realTimeMetrics.topSourceIps.length > 5 &&
+      realTimeMetrics.events.authenticationFailures > 20
+    ) {
       alerts.push({
         type: 'POTENTIAL_COORDINATED_ATTACK',
         severity: 'CRITICAL',
@@ -171,33 +185,32 @@ export class SecurityMonitor {
     if (criticalAlerts > 0) {
       return 'CRITICAL';
     }
-    
+
     if (highAlerts > 2 || (highAlerts > 0 && mediumAlerts > 3)) {
       return 'HIGH';
     }
-    
+
     if (highAlerts > 0 || mediumAlerts > 2) {
       return 'MEDIUM';
     }
-    
+
     if (mediumAlerts > 0 || alerts.length > 0) {
       return 'LOW';
     }
-    
+
     return 'NORMAL';
   }
 
   /**
    * Generate security recommendations
    */
-  private generateRecommendations(
-    metrics: SecurityMetrics,
-    alerts: SecurityAlert[]
-  ): string[] {
+  private generateRecommendations(metrics: SecurityMetrics, alerts: SecurityAlert[]): string[] {
     const recommendations: string[] = [];
 
     if (alerts.some(a => a.type === 'HIGH_AUTH_FAILURES')) {
-      recommendations.push('Consider implementing IP-based rate limiting for authentication attempts');
+      recommendations.push(
+        'Consider implementing IP-based rate limiting for authentication attempts'
+      );
       recommendations.push('Review and potentially strengthen API key validation');
     }
 
@@ -272,7 +285,7 @@ export class SecurityMonitor {
     const realTimeMetrics = this.securityLogger.generateSecurityMetrics(
       SecurityMonitor.TIME_WINDOWS.realTime
     );
-    
+
     const hourlyMetrics = this.securityLogger.generateSecurityMetrics(
       SecurityMonitor.TIME_WINDOWS.longTerm
     );
@@ -291,19 +304,19 @@ export class SecurityMonitor {
    */
   private getSystemStatus(metrics: SecurityMetrics): SystemStatus {
     const totalEvents = Object.values(metrics.events).reduce((sum, count) => sum + count, 0);
-    
+
     if (totalEvents === 0) {
       return 'HEALTHY';
     }
-    
+
     if (metrics.events.dangerousPatterns > 0 || metrics.events.authenticationFailures > 20) {
       return 'UNDER_ATTACK';
     }
-    
+
     if (totalEvents > 50) {
       return 'ELEVATED_ACTIVITY';
     }
-    
+
     return 'NORMAL_ACTIVITY';
   }
 }

@@ -4,7 +4,9 @@ import { ValidationMiddleware } from '../../../src/shared/middleware/validation-
 describe('ValidationMiddleware', () => {
   const mockCorrelationId = 'test-correlation-id';
 
-  const createMockEvent = (overrides: Partial<APIGatewayProxyEvent> = {}): APIGatewayProxyEvent => ({
+  const createMockEvent = (
+    overrides: Partial<APIGatewayProxyEvent> = {}
+  ): APIGatewayProxyEvent => ({
     httpMethod: 'POST',
     path: '/api/v1/test',
     headers: {
@@ -275,7 +277,7 @@ describe('ValidationMiddleware', () => {
       const event = createMockEvent({
         queryStringParameters: {
           'valid_param-name.test': 'value',
-          'param123': 'value2',
+          param123: 'value2',
         },
       });
 

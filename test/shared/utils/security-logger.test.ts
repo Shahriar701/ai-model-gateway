@@ -22,9 +22,7 @@ describe('SecurityLogger', () => {
         'test-agent'
       );
 
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Authentication successful')
-      );
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Authentication successful'));
 
       consoleSpy.mockRestore();
     });
@@ -42,9 +40,7 @@ describe('SecurityLogger', () => {
         'Invalid API key'
       );
 
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Authentication failed')
-      );
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Authentication failed'));
 
       consoleSpy.mockRestore();
     });
@@ -59,13 +55,13 @@ describe('SecurityLogger', () => {
         true
       );
 
-      const logCall = consoleSpy.mock.calls.find(call => 
+      const logCall = consoleSpy.mock.calls.find(call =>
         call[0].includes('Authentication successful')
       );
-      
+
       expect(logCall).toBeDefined();
       const logData = JSON.parse(logCall![0]);
-      
+
       // Check that sensitive data is masked
       expect(logData.userId).toBe('very***2345');
       expect(logData.apiKeyPrefix).toBe('very-lon***');
@@ -87,9 +83,7 @@ describe('SecurityLogger', () => {
         'test-agent'
       );
 
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Rate limit exceeded')
-      );
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Rate limit exceeded'));
 
       consoleSpy.mockRestore();
     });
@@ -143,13 +137,13 @@ describe('SecurityLogger', () => {
         'test-agent'
       );
 
-      const logCall = consoleSpy.mock.calls.find(call => 
+      const logCall = consoleSpy.mock.calls.find(call =>
         call[0].includes('Dangerous pattern detected')
       );
-      
+
       expect(logCall).toBeDefined();
       const logData = JSON.parse(logCall![0]);
-      
+
       // Check that the log contains sanitized content
       expect(logData.contentSample).toBeDefined();
       expect(typeof logData.contentSample).toBe('string');
@@ -167,7 +161,7 @@ describe('SecurityLogger', () => {
       securityLogger.logOversizedRequest(
         mockCorrelationId,
         1048576, // 1MB
-        524288,  // 512KB
+        524288, // 512KB
         'BODY',
         '127.0.0.1',
         'test-agent'
@@ -193,9 +187,7 @@ describe('SecurityLogger', () => {
         'test-agent'
       );
 
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Invalid header detected')
-      );
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Invalid header detected'));
 
       consoleSpy.mockRestore();
     });
@@ -214,9 +206,7 @@ describe('SecurityLogger', () => {
         '127.0.0.1'
       );
 
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('API key create successful')
-      );
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('API key create successful'));
 
       consoleSpy.mockRestore();
     });
@@ -234,9 +224,7 @@ describe('SecurityLogger', () => {
         'Key not found'
       );
 
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('API key revoke failed')
-      );
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('API key revoke failed'));
 
       consoleSpy.mockRestore();
     });
@@ -274,13 +262,13 @@ describe('SecurityLogger', () => {
         '127.0.0.1'
       );
 
-      const logCall = consoleSpy.mock.calls.find(call => 
+      const logCall = consoleSpy.mock.calls.find(call =>
         call[0].includes('Security configuration changed')
       );
-      
+
       expect(logCall).toBeDefined();
       const logData = JSON.parse(logCall![0]);
-      
+
       // Check that secrets are masked
       expect(logData.oldValue.apiSecret).toBe('***');
       expect(logData.newValue.apiSecret).toBe('***');

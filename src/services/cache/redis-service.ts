@@ -35,9 +35,9 @@ export class RedisService implements CacheService {
 
   private async doConnect(): Promise<void> {
     try {
-      logger.info('Connecting to Redis', { 
-        endpoint: this.endpoint, 
-        port: this.port 
+      logger.info('Connecting to Redis', {
+        endpoint: this.endpoint,
+        port: this.port,
       });
 
       this.client = createClient({
@@ -52,7 +52,7 @@ export class RedisService implements CacheService {
         },
       });
 
-      this.client.on('error', (error) => {
+      this.client.on('error', error => {
         logger.error('Redis client error', error);
         this.isConnected = false;
       });
@@ -69,10 +69,11 @@ export class RedisService implements CacheService {
 
       await this.client.connect();
       this.isConnected = true;
-      
+
       logger.info('Successfully connected to Redis');
     } catch (error) {
-      logger.error('Failed to connect to Redis', 
+      logger.error(
+        'Failed to connect to Redis',
         error instanceof Error ? error : new Error(String(error))
       );
       this.isConnected = false;
@@ -92,7 +93,8 @@ export class RedisService implements CacheService {
       logger.debug('Redis GET', { key, found: value !== null });
       return value;
     } catch (error) {
-      logger.error(`Redis GET error for key ${key}`, 
+      logger.error(
+        `Redis GET error for key ${key}`,
         error instanceof Error ? error : new Error(String(error))
       );
       return null; // Graceful degradation
@@ -114,7 +116,8 @@ export class RedisService implements CacheService {
 
       logger.debug('Redis SET', { key, ttl: ttlSeconds });
     } catch (error) {
-      logger.error(`Redis SET error for key ${key}`, 
+      logger.error(
+        `Redis SET error for key ${key}`,
         error instanceof Error ? error : new Error(String(error))
       );
       // Don't throw - allow operation to continue without caching
@@ -131,7 +134,8 @@ export class RedisService implements CacheService {
       await this.client.del(key);
       logger.debug('Redis DEL', { key });
     } catch (error) {
-      logger.error(`Redis DEL error for key ${key}`, 
+      logger.error(
+        `Redis DEL error for key ${key}`,
         error instanceof Error ? error : new Error(String(error))
       );
       // Don't throw - allow operation to continue
@@ -149,7 +153,8 @@ export class RedisService implements CacheService {
       logger.debug('Redis EXISTS', { key, exists: result === 1 });
       return result === 1;
     } catch (error) {
-      logger.error(`Redis EXISTS error for key ${key}`, 
+      logger.error(
+        `Redis EXISTS error for key ${key}`,
         error instanceof Error ? error : new Error(String(error))
       );
       return false; // Graceful degradation
@@ -162,7 +167,8 @@ export class RedisService implements CacheService {
         await this.client.disconnect();
         logger.info('Redis client disconnected');
       } catch (error) {
-        logger.error('Error disconnecting Redis client', 
+        logger.error(
+          'Error disconnecting Redis client',
           error instanceof Error ? error : new Error(String(error))
         );
       }

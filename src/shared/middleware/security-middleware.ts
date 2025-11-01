@@ -46,9 +46,9 @@ export class SecurityMiddleware {
           contentLength,
           maxAllowed: this.MAX_CONTENT_LENGTH,
         });
-        
+
         // TODO: Add security logging here
-        
+
         return { success: false, error: 'Request payload too large' };
       }
 
@@ -102,24 +102,24 @@ export class SecurityMiddleware {
       'X-Content-Type-Options': 'nosniff',
       'X-Frame-Options': 'DENY',
       'X-XSS-Protection': '1; mode=block',
-      
+
       // Content Security Policy
       'Content-Security-Policy': "default-src 'none'; script-src 'none'; object-src 'none';",
-      
+
       // HSTS (HTTP Strict Transport Security)
       'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload',
-      
+
       // Referrer Policy
       'Referrer-Policy': 'strict-origin-when-cross-origin',
-      
+
       // Permissions Policy
       'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
-      
+
       // Cache Control for sensitive responses
       'Cache-Control': 'no-store, no-cache, must-revalidate, private',
-      'Pragma': 'no-cache',
-      'Expires': '0',
-      
+      Pragma: 'no-cache',
+      Expires: '0',
+
       // Correlation ID for tracing
       'X-Correlation-ID': correlationId,
     };
@@ -151,9 +151,9 @@ export class SecurityMiddleware {
           headerLength: value.length,
           maxAllowed: this.MAX_HEADER_LENGTH,
         });
-        
+
         // TODO: Add security logging here
-        
+
         return { success: false, error: 'Request header too large' };
       }
 
@@ -163,9 +163,9 @@ export class SecurityMiddleware {
           correlationId,
           headerName: name,
         });
-        
+
         // TODO: Add security logging here
-        
+
         return { success: false, error: 'Invalid header content' };
       }
     }
@@ -197,7 +197,7 @@ export class SecurityMiddleware {
 
       // Basic sanitization - remove null bytes and control characters
       let sanitized = input.replace(/\0/g, ''); // Remove null bytes
-      sanitized = sanitized.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ''); // Remove control chars
+      sanitized = sanitized.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, ''); // Remove control chars
 
       return { success: true, sanitizedInput: sanitized };
     } catch (error) {

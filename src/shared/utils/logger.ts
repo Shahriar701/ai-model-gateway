@@ -29,15 +29,16 @@ export class Logger {
   }
 
   error(message: string, error?: Error | string, meta: Record<string, any> = {}): void {
-    const errorMeta = typeof error === 'string'
-      ? { error }
-      : error
-      ? {
-          errorName: error.name,
-          errorMessage: error.message,
-          errorStack: error.stack,
-        }
-      : {};
+    const errorMeta =
+      typeof error === 'string'
+        ? { error }
+        : error
+          ? {
+              errorName: error.name,
+              errorMessage: error.message,
+              errorStack: error.stack,
+            }
+          : {};
 
     this.log('ERROR', message, { ...meta, ...errorMeta });
   }

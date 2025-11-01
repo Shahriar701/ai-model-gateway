@@ -5,11 +5,11 @@ import { ProviderRouter } from '../../services/router';
 import { OpenAIProvider, BedrockProvider } from '../../services/providers';
 import { ValidationHelper } from '../../shared/validation';
 import { LLMRequest, RateLimitTier } from '../../shared/types';
-import { 
-  SecurityMiddleware, 
-  ValidationMiddleware, 
-  CorsMiddleware, 
-  RequestSigningMiddleware 
+import {
+  SecurityMiddleware,
+  ValidationMiddleware,
+  CorsMiddleware,
+  RequestSigningMiddleware,
 } from '../../shared/middleware';
 import { SecurityLogger } from '../../shared/utils/security-logger';
 
@@ -93,7 +93,10 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const sanitizedEvent = securityResult.sanitizedEvent || event;
 
     // Verify request signature for secure endpoints
-    const signatureResult = await RequestSigningMiddleware.verifyRequestSignature(sanitizedEvent, correlationId);
+    const signatureResult = await RequestSigningMiddleware.verifyRequestSignature(
+      sanitizedEvent,
+      correlationId
+    );
     if (!signatureResult.success) {
       const errorResponse = createErrorResponse(401, signatureResult.error!, correlationId);
       return finalizeResponse(errorResponse, event, correlationId);
@@ -107,7 +110,10 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Validate query parameters
-    const queryValidation = ValidationMiddleware.validateQueryParameters(sanitizedEvent, correlationId);
+    const queryValidation = ValidationMiddleware.validateQueryParameters(
+      sanitizedEvent,
+      correlationId
+    );
     if (!queryValidation.success) {
       const errorResponse = createErrorResponse(400, queryValidation.error!, correlationId);
       return finalizeResponse(errorResponse, event, correlationId);
@@ -138,7 +144,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         sanitizedEvent.requestContext.identity?.sourceIp,
         sanitizedEvent.headers['User-Agent']
       );
-      
+
       throw new RateLimitError(
         'Rate limit exceeded',
         Math.ceil((rateLimitResult.retryAfter || 60000) / 1000)
@@ -359,9 +365,9 @@ function finalizeResponse(
 ): APIGatewayProxyResult {
   // Add security headers
   let finalResponse = SecurityMiddleware.addSecurityHeaders(response, correlationId);
-  
+
   // Add CORS headers
   finalResponse = CorsMiddleware.addCorsHeaders(finalResponse, event, correlationId);
-  
+
   return finalResponse;
 }

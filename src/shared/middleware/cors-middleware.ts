@@ -14,14 +14,7 @@ export class CorsMiddleware {
     'http://localhost:3001', // Development
   ];
 
-  private static readonly ALLOWED_METHODS = [
-    'GET',
-    'POST',
-    'PUT',
-    'DELETE',
-    'OPTIONS',
-    'HEAD',
-  ];
+  private static readonly ALLOWED_METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'];
 
   private static readonly ALLOWED_HEADERS = [
     'Content-Type',
@@ -89,9 +82,8 @@ export class CorsMiddleware {
     if (requestHeaders) {
       const requestedHeaders = requestHeaders.split(',').map(h => h.trim());
       const invalidHeaders = requestedHeaders.filter(
-        header => !this.ALLOWED_HEADERS.some(allowed => 
-          allowed.toLowerCase() === header.toLowerCase()
-        )
+        header =>
+          !this.ALLOWED_HEADERS.some(allowed => allowed.toLowerCase() === header.toLowerCase())
       );
 
       if (invalidHeaders.length > 0) {
@@ -159,7 +151,7 @@ export class CorsMiddleware {
   ): Record<string, string> {
     const headers: Record<string, string> = {
       'Access-Control-Allow-Credentials': 'true',
-      'Vary': 'Origin',
+      Vary: 'Origin',
     };
 
     if (!origin) {
