@@ -1,6 +1,7 @@
 {
   "name": "ai-model-gateway",
   "version": "0.1.0",
+  "description": "Production-ready AI Model Gateway with MCP integration for e-commerce platforms",
   "bin": {
     "ai-model-gateway": "bin/ai-model-gateway.js"
   },
@@ -8,12 +9,33 @@
     "build": "tsc",
     "watch": "tsc -w",
     "test": "jest",
-    "cdk": "cdk"
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint . --ext .ts",
+    "lint:fix": "eslint . --ext .ts --fix",
+    "format": "prettier --write \"**/*.{ts,js,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,js,json,md}\"",
+    "cdk": "cdk",
+    "deploy": "cdk deploy --all",
+    "deploy:dev": "ENVIRONMENT=dev cdk deploy --all",
+    "deploy:prod": "ENVIRONMENT=prod cdk deploy --all",
+    "destroy": "cdk destroy --all",
+    "synth": "cdk synth",
+    "diff": "cdk diff",
+    "bootstrap": "cdk bootstrap"
   },
   "devDependencies": {
     "@types/jest": "^29.5.14",
     "@types/node": "22.7.9",
+    "@types/aws-lambda": "^8.10.145",
+    "@eslint/js": "^9.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "eslint": "^9.0.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-prettier": "^5.0.0",
     "jest": "^29.7.0",
+    "prettier": "^3.0.0",
     "ts-jest": "^29.2.5",
     "aws-cdk": "2.1031.1",
     "ts-node": "^10.9.2",
@@ -21,6 +43,27 @@
   },
   "dependencies": {
     "aws-cdk-lib": "2.215.0",
-    "constructs": "^10.0.0"
-  }
+    "constructs": "^10.0.0",
+    "zod": "^3.23.0",
+    "@aws-sdk/client-bedrock-runtime": "^3.0.0",
+    "@aws-sdk/client-dynamodb": "^3.0.0",
+    "@aws-sdk/client-eventbridge": "^3.0.0",
+    "@aws-sdk/client-s3": "^3.0.0",
+    "@aws-sdk/client-ssm": "^3.0.0",
+    "@aws-sdk/lib-dynamodb": "^3.0.0",
+    "axios": "^1.6.0",
+    "redis": "^4.6.0"
+  },
+  "keywords": [
+    "aws",
+    "cdk",
+    "ai",
+    "llm",
+    "mcp",
+    "gateway",
+    "platform-engineering",
+    "infrastructure-as-code"
+  ],
+  "author": "Platform Engineering Team",
+  "license": "MIT"
 }
