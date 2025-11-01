@@ -1,4 +1,5 @@
 // Core type definitions for the AI Model Gateway
+export * from './product-types';
 
 /**
  * Standard LLM request interface
