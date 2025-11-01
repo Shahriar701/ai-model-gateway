@@ -2,7 +2,7 @@
 export { Logger } from './logger';
 export { 
   ErrorHandler, 
-  ValidationError, 
+  ValidationError as RequestValidationError, 
   AuthenticationError, 
   RateLimitError, 
   ProviderError 
