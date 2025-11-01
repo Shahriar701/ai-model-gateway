@@ -9,7 +9,7 @@
 4. Select "Programmatic access"
 
 ### Create IAM Policy
-Create a custom policy with these permissions:
+Create a custom policy with these permissions (follows security best practices with restricted PassRole):
 
 ```json
 {

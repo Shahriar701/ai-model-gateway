@@ -149,13 +149,12 @@
       "Resource": "*"
     },
     {
-      "Sid": "IAMAccess",
+      "Sid": "IAMRoleManagement",
       "Effect": "Allow",
       "Action": [
         "iam:CreateRole",
         "iam:DeleteRole",
         "iam:GetRole",
-        "iam:PassRole",
         "iam:AttachRolePolicy",
         "iam:DetachRolePolicy",
         "iam:PutRolePolicy",
@@ -165,6 +164,23 @@
         "iam:ListAttachedRolePolicies"
       ],
       "Resource": ["arn:aws:iam::*:role/ai-model-gateway-*", "arn:aws:iam::*:role/cdk-*"]
+    },
+    {
+      "Sid": "IAMPassRoleRestricted",
+      "Effect": "Allow",
+      "Action": ["iam:PassRole"],
+      "Resource": ["arn:aws:iam::*:role/ai-model-gateway-*", "arn:aws:iam::*:role/cdk-*"],
+      "Condition": {
+        "StringEquals": {
+          "iam:PassedToService": [
+            "lambda.amazonaws.com",
+            "apigateway.amazonaws.com",
+            "events.amazonaws.com",
+            "cloudformation.amazonaws.com",
+            "dynamodb.amazonaws.com"
+          ]
+        }
+      }
     },
     {
       "Sid": "LogsAccess",
