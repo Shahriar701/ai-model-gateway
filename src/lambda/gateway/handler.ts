@@ -1,11 +1,27 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { Logger, ErrorHandler, AuthenticationError, RateLimitError } from '../../shared/utils';
+import { 
+  Logger, 
+  ErrorHandler, 
+  AuthenticationError, 
+  RateLimitError, 
+  ProviderError
+} from '../../shared/utils';
+import { ValidationError, CircuitBreakerError, TimeoutError } from '../../shared/utils/error-handler';
 import { ApiKeyService, RateLimiter } from '../../services/auth';
 import { ProviderRouter } from '../../services/router';
 import { OpenAIProvider, BedrockProvider } from '../../services/providers';
 import { MCPContextService } from '../../services/mcp';
 import { ValidationHelper } from '../../shared/validation';
-import { LLMRequest, RateLimitTier, RoutingStrategy } from '../../shared/types';
+import { 
+  LLMRequest, 
+  LLMResponse, 
+  RateLimitTier, 
+  RoutingStrategy, 
+  ProviderSelectionCriteria,
+  ErrorType,
+  ProviderConfig,
+  ProviderType
+} from '../../shared/types';
 import { BatchedGatewayService } from '../../services/cache';
 import {
   SecurityMiddleware,
@@ -21,6 +37,7 @@ import { CorrelationService } from '../../services/monitoring/correlation-servic
 import { RunbookService } from '../../services/monitoring/runbook-service';
 import { SecurityMonitor } from '../../services/monitoring/security-monitor';
 import { AdminApi } from '../../services/config/admin-api';
+import { CacheManager } from '../../services/cache/cache-manager';
 
 const logger = new Logger('GatewayHandler');
 const apiKeyService = new ApiKeyService();
@@ -34,40 +51,45 @@ const correlationService = CorrelationService.getInstance();
 const runbookService = RunbookService.getInstance();
 const securityMonitor = SecurityMonitor.getInstance();
 const adminApi = AdminApi.getInstance();
+const cacheManager = new CacheManager();
 
-// Initialize providers and router
+// Initialize providers and router with enhanced configuration
 const providers = [new OpenAIProvider(), new BedrockProvider()];
 
-const providerConfigs = [
+const providerConfigs: ProviderConfig[] = [
   {
     name: 'openai',
-    type: 'openai' as any,
-    enabled: true,
-    priority: 1,
-    maxConcurrency: 10,
-    timeout: 30000,
-    retryAttempts: 3,
-    retryDelay: 1000,
-    costPerInputToken: 0.00003,
-    costPerOutputToken: 0.00006,
-    models: ['gpt-4', 'gpt-3.5-turbo'],
+    type: ProviderType.OPENAI,
+    enabled: process.env.OPENAI_ENABLED !== 'false',
+    priority: parseInt(process.env.OPENAI_PRIORITY || '1'),
+    maxConcurrency: parseInt(process.env.OPENAI_MAX_CONCURRENCY || '10'),
+    timeout: parseInt(process.env.OPENAI_TIMEOUT || '30000'),
+    retryAttempts: parseInt(process.env.OPENAI_RETRY_ATTEMPTS || '3'),
+    retryDelay: parseInt(process.env.OPENAI_RETRY_DELAY || '1000'),
+    costPerInputToken: parseFloat(process.env.OPENAI_COST_PER_INPUT_TOKEN || '0.00003'),
+    costPerOutputToken: parseFloat(process.env.OPENAI_COST_PER_OUTPUT_TOKEN || '0.00006'),
+    models: (process.env.OPENAI_MODELS || 'gpt-4,gpt-3.5-turbo').split(','),
+    healthCheckInterval: parseInt(process.env.OPENAI_HEALTH_CHECK_INTERVAL || '30000'),
   },
   {
     name: 'bedrock',
-    type: 'bedrock' as any,
-    enabled: true,
-    priority: 2,
-    maxConcurrency: 5,
-    timeout: 30000,
-    retryAttempts: 2,
-    retryDelay: 1500,
-    costPerInputToken: 0.000008,
-    costPerOutputToken: 0.000024,
-    models: ['claude-3', 'llama-2'],
+    type: ProviderType.BEDROCK,
+    enabled: process.env.BEDROCK_ENABLED !== 'false',
+    priority: parseInt(process.env.BEDROCK_PRIORITY || '2'),
+    maxConcurrency: parseInt(process.env.BEDROCK_MAX_CONCURRENCY || '5'),
+    timeout: parseInt(process.env.BEDROCK_TIMEOUT || '30000'),
+    retryAttempts: parseInt(process.env.BEDROCK_RETRY_ATTEMPTS || '2'),
+    retryDelay: parseInt(process.env.BEDROCK_RETRY_DELAY || '1500'),
+    costPerInputToken: parseFloat(process.env.BEDROCK_COST_PER_INPUT_TOKEN || '0.000008'),
+    costPerOutputToken: parseFloat(process.env.BEDROCK_COST_PER_OUTPUT_TOKEN || '0.000024'),
+    models: (process.env.BEDROCK_MODELS || 'claude-3,llama-2').split(','),
+    healthCheckInterval: parseInt(process.env.BEDROCK_HEALTH_CHECK_INTERVAL || '30000'),
   },
 ];
 
 const router = new ProviderRouter(providers, providerConfigs);
+
+// Circuit breaker configuration now handled by ErrorHandler
 
 // Initialize batched gateway service with request optimization
 const batchedGateway = new BatchedGatewayService(router, {
@@ -79,6 +101,8 @@ const batchedGateway = new BatchedGatewayService(router, {
   enableIntelligentRouting: process.env.ENABLE_INTELLIGENT_ROUTING !== 'false',
   costOptimizationThreshold: parseFloat(process.env.COST_OPTIMIZATION_THRESHOLD || '0.001'),
 });
+
+// Circuit breaker and retry logic now handled by ErrorHandler
 
 // Initialize MCP context service
 let mcpInitialized = false;
@@ -100,12 +124,13 @@ const initializeHealth = async () => {
 
 /**
  * Main API Gateway Lambda handler for AI Model Gateway
- * Handles routing, authentication, and request processing
- * Updated to test GitHub Actions deployment pipeline
+ * Handles routing, authentication, request processing with comprehensive error handling
+ * Implements circuit breaker patterns and intelligent provider routing
  */
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   const correlationId = correlationService.extractCorrelationFromHeaders(event.headers);
   const startTime = Date.now();
+  let userId: string | undefined;
   
   // Create correlation context
   const context = correlationService.createContext(
@@ -130,6 +155,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     method: event.httpMethod,
     path: event.path,
     userAgent: event.headers['User-Agent'],
+    timestamp: new Date().toISOString(),
   });
 
   try {
@@ -211,6 +237,11 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return finalizeResponse(metricsResponse, event, correlationId);
     }
 
+    if (sanitizedEvent.path === '/api/v1/health/circuit-breakers' && sanitizedEvent.httpMethod === 'GET') {
+      const circuitBreakerResponse = await handleCircuitBreakerCheck(correlationId);
+      return finalizeResponse(circuitBreakerResponse, event, correlationId);
+    }
+
     // Handle admin API endpoints (no authentication required here as AdminApi handles it)
     if (sanitizedEvent.path.startsWith('/api/v1/admin/')) {
       const adminResponse = await adminApi.handleRequest(sanitizedEvent);
@@ -219,7 +250,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Authenticate request
     const authStartTime = Date.now();
-    const authResult = await authenticateRequest(sanitizedEvent);
+    const authResult = await authenticateRequest(sanitizedEvent, correlationId);
     const authLatency = Date.now() - authStartTime;
     
     if (!authResult.success) {
@@ -227,7 +258,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       throw new AuthenticationError(authResult.error || 'Authentication failed');
     }
 
-    const { userId, tier, keyId } = authResult;
+    const { tier, keyId } = authResult;
+    userId = authResult.userId; // Set userId for error handling
     await metricsService.recordAuthMetrics(true, tier!, correlationId, authLatency);
     
     // Update correlation context with user information
@@ -300,15 +332,39 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     return finalizeResponse(response, event, correlationId);
   } catch (error) {
     const totalLatency = Date.now() - startTime;
-    const errorType = error instanceof AuthenticationError ? 'AUTHENTICATION_ERROR' :
-                     error instanceof RateLimitError ? 'RATE_LIMIT_EXCEEDED' : 'INTERNAL_ERROR';
+    const errorInstance = error as Error;
     
+    // Determine error type and appropriate response
+    let errorType: ErrorType;
+    let statusCode: number;
+    let retryAfter: number | undefined;
+    
+    if (error instanceof AuthenticationError) {
+      errorType = ErrorType.AUTHENTICATION_ERROR;
+      statusCode = 401;
+    } else if (error instanceof RateLimitError) {
+      errorType = ErrorType.RATE_LIMIT_EXCEEDED;
+      statusCode = 429;
+      retryAfter = (error as any).retryAfter;
+    } else if (error instanceof ValidationError) {
+      errorType = ErrorType.INVALID_REQUEST;
+      statusCode = 400;
+    } else if (errorInstance.message.includes('Circuit breaker')) {
+      errorType = ErrorType.PROVIDER_UNAVAILABLE;
+      statusCode = 503;
+      retryAfter = 60; // Suggest retry after 1 minute
+    } else {
+      errorType = ErrorType.INTERNAL_ERROR;
+      statusCode = 500;
+    }
+    
+    // Record comprehensive error metrics
     await metricsService.recordErrorMetrics(
       'gateway',
-      'unknown',
+      userId || 'unknown',
       errorType,
       correlationId,
-      undefined,
+      userId,
       totalLatency
     );
 
@@ -316,22 +372,57 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       method: event.httpMethod,
       path: event.path,
       errorType,
+      statusCode,
     });
 
     correlationService.addBreadcrumb(correlationId, 'gateway', 'request_error', {
       errorType,
-      errorMessage: (error as Error).message,
+      errorMessage: errorInstance.message,
       latency: totalLatency,
+      statusCode,
+      timestamp: new Date().toISOString(),
     });
 
-    // Add error to trace
+    // Add error to trace with detailed context
     contextLogger.addTraceMetadata('error', {
       type: errorType,
-      message: (error as Error).message,
-      stack: (error as Error).stack,
+      message: errorInstance.message,
+      stack: errorInstance.stack,
+      statusCode,
+      userId: userId || 'unknown',
     });
 
-    const errorResponse = ErrorHandler.handleLambdaError(error, correlationId);
+    // Log security events for authentication and rate limiting errors
+    if (error instanceof AuthenticationError || error instanceof RateLimitError) {
+      if (errorType === ErrorType.AUTHENTICATION_ERROR) {
+        securityLogger.logAuthenticationAttempt(
+          correlationId,
+          userId || null,
+          null,
+          false,
+          event.requestContext.identity?.sourceIp,
+          event.headers['User-Agent'],
+          errorInstance.message
+        );
+      } else if (errorType === ErrorType.RATE_LIMIT_EXCEEDED) {
+        securityLogger.logRateLimitExceeded(
+          correlationId,
+          userId || 'unknown',
+          'unknown',
+          0,
+          event.requestContext.identity?.sourceIp,
+          event.headers['User-Agent']
+        );
+      }
+    }
+
+    // Create detailed error response using enhanced error handler
+    const errorResponse = await ErrorHandler.handleLambdaError(error, correlationId, {
+      userId,
+      path: event.path,
+      method: event.httpMethod,
+      operation: 'gateway_request',
+    });
     
     // Add correlation headers to error response
     const correlationHeaders = correlationService.getCorrelationHeaders(correlationId);
@@ -339,6 +430,14 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     
     return finalizeResponse(errorResponse, event, correlationId);
   } finally {
+    // Close tracing segment
+    if (segment) {
+      tracingService.addMetadata('request_summary', {
+        totalLatency: Date.now() - startTime,
+        correlationId,
+      });
+    }
+    
     // Clean up old correlation contexts periodically
     if (Math.random() < 0.01) { // 1% chance
       correlationService.cleanup();
@@ -346,17 +445,20 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   }
 };
 
-async function authenticateRequest(event: APIGatewayProxyEvent): Promise<{
+async function authenticateRequest(
+  event: APIGatewayProxyEvent,
+  correlationId: string
+): Promise<{
   success: boolean;
   userId?: string;
   tier?: RateLimitTier;
   keyId?: string;
   error?: string;
 }> {
-  const correlationId = event.requestContext.requestId;
   const apiKey = event.headers['X-API-Key'] || event.headers['x-api-key'];
   const sourceIp = event.requestContext.identity?.sourceIp;
   const userAgent = event.headers['User-Agent'];
+  const contextLogger = correlationService.createContextualLogger(correlationId, 'AuthenticationHandler');
 
   if (!apiKey) {
     securityLogger.logAuthenticationAttempt(
@@ -368,39 +470,95 @@ async function authenticateRequest(event: APIGatewayProxyEvent): Promise<{
       userAgent,
       'Missing API key'
     );
+    contextLogger.warn('Authentication failed: Missing API key', {
+      sourceIp,
+      userAgent,
+      path: event.path,
+    });
     return { success: false, error: 'API key required' };
   }
 
-  const validation = await apiKeyService.validateApiKey(apiKey);
+  try {
+    const validation = await ErrorHandler.executeWithCircuitBreaker(
+      () => ErrorHandler.executeWithRetry(
+        () => apiKeyService.validateApiKey(apiKey),
+        {
+          maxRetries: 2,
+          baseDelay: 500,
+          maxDelay: 2000,
+          retryCondition: (error) => {
+            // Don't retry authentication errors, but retry service errors
+            return !(error instanceof AuthenticationError);
+          }
+        }
+      ),
+      'api-key-service',
+      correlationId
+    );
 
-  if (!validation.valid) {
+    if (!validation.valid) {
+      securityLogger.logAuthenticationAttempt(
+        correlationId,
+        validation.userId || null,
+        apiKey,
+        false,
+        sourceIp,
+        userAgent,
+        'Invalid API key'
+      );
+      contextLogger.warn('Authentication failed: Invalid API key', {
+        sourceIp,
+        userAgent,
+        path: event.path,
+        keyId: validation.keyId,
+      });
+      return { success: false, error: 'Invalid API key' };
+    }
+
     securityLogger.logAuthenticationAttempt(
       correlationId,
-      validation.userId || null,
+      validation.userId!,
+      apiKey,
+      true,
+      sourceIp,
+      userAgent
+    );
+
+    contextLogger.info('Authentication successful', {
+      userId: validation.userId,
+      tier: validation.tier,
+      keyId: validation.keyId,
+      sourceIp,
+    });
+
+    return {
+      success: true,
+      userId: validation.userId,
+      tier: validation.tier,
+      keyId: validation.keyId,
+    };
+  } catch (error) {
+    contextLogger.error('Authentication service error', error as Error, {
+      sourceIp,
+      userAgent,
+      path: event.path,
+    });
+    
+    securityLogger.logAuthenticationAttempt(
+      correlationId,
+      null,
       apiKey,
       false,
       sourceIp,
       userAgent,
-      'Invalid API key'
+      `Service error: ${(error as Error).message}`
     );
-    return { success: false, error: 'Invalid API key' };
+    
+    return { 
+      success: false, 
+      error: 'Authentication service temporarily unavailable' 
+    };
   }
-
-  securityLogger.logAuthenticationAttempt(
-    correlationId,
-    validation.userId!,
-    apiKey,
-    true,
-    sourceIp,
-    userAgent
-  );
-
-  return {
-    success: true,
-    userId: validation.userId,
-    tier: validation.tier,
-    keyId: validation.keyId,
-  };
 }
 
 async function routeRequest(
@@ -523,40 +681,132 @@ async function handleCompletions(
     correlationId,
   });
   
-  correlationService.addBreadcrumb(correlationId, 'gateway', 'completion_start');
+  correlationService.addBreadcrumb(correlationId, 'gateway', 'completion_start', {
+    timestamp: new Date().toISOString(),
+  });
   
   try {
     if (!event.body) {
-      throw new Error('Request body is required');
+      throw new ValidationError('Request body is required', [
+        { field: 'body', message: 'Request body cannot be empty' }
+      ]);
     }
 
     // Initialize MCP service if needed
     await initializeMCP();
 
-    // Validate request
-    const requestData = JSON.parse(event.body);
+    // Validate and parse request with enhanced error handling
+    let requestData: any;
+    try {
+      requestData = JSON.parse(event.body);
+    } catch (parseError) {
+      throw new ValidationError('Invalid JSON in request body', [
+        { field: 'body', message: 'Request body must be valid JSON' }
+      ]);
+    }
+
     let llmRequest = ValidationHelper.validateLLMRequest(requestData);
 
     // Add user context to request
     llmRequest.metadata = {
       ...llmRequest.metadata,
       userId,
-      customFields: { correlationId },
+      customFields: { 
+        correlationId,
+        requestTimestamp: new Date().toISOString(),
+        sourceIp: event.requestContext.identity?.sourceIp,
+      },
     };
 
     // Add trace annotations
     tracingService.addAnnotation('model', llmRequest.model);
     tracingService.addAnnotation('userId', userId);
     tracingService.addAnnotation('messageCount', llmRequest.messages.length);
+    tracingService.addAnnotation('hasMaxTokens', !!llmRequest.maxTokens);
 
     correlationService.addBreadcrumb(correlationId, 'gateway', 'request_validated', {
       model: llmRequest.model,
       messageCount: llmRequest.messages.length,
+      maxTokens: llmRequest.maxTokens,
+      temperature: llmRequest.temperature,
     });
 
-    // Inject MCP context if applicable
+    // Check cache first for potential cost savings
+    const cacheKey = await cacheManager.generateCacheKey(llmRequest);
+    const cachedResponse = await cacheManager.get(cacheKey);
+    
+    if (cachedResponse) {
+      contextLogger.info('Serving cached response', {
+        userId,
+        model: llmRequest.model,
+        cacheKey: cacheKey.substring(0, 16) + '...',
+      });
+
+      correlationService.addBreadcrumb(correlationId, 'gateway', 'cache_hit', {
+        cacheKey: cacheKey.substring(0, 16) + '...',
+      });
+
+      // Add cache headers
+      const cacheHeaders = {
+        'X-Request-Cached': 'true',
+        'X-Cache-Hit': 'true',
+        'X-Provider-Used': cachedResponse.provider,
+      };
+
+      return {
+        statusCode: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Correlation-ID': correlationId,
+          ...cacheHeaders,
+        },
+        body: JSON.stringify({
+          ...cachedResponse,
+          cached: true,
+          metadata: {
+            ...cachedResponse.metadata,
+            servedFromCache: true,
+            cacheTimestamp: new Date().toISOString(),
+          },
+        }),
+      };
+    }
+
+    // Inject MCP context if applicable with enhanced error handling
     const mcpSubsegment = tracingService.createSubsegment('mcp_context_injection');
-    llmRequest = await mcpContextService.injectMCPContext(llmRequest);
+    try {
+      llmRequest = await ErrorHandler.executeWithCircuitBreaker(
+        () => ErrorHandler.executeWithRetry(
+          () => mcpContextService.injectMCPContext(llmRequest),
+          {
+            maxRetries: 2,
+            baseDelay: 500,
+            maxDelay: 2000,
+            retryCondition: (error) => {
+              // Retry on timeout or provider errors, but not on validation errors
+              return !(error instanceof ValidationError);
+            }
+          }
+        ),
+        'mcp-service',
+        correlationId
+      );
+    } catch (mcpError) {
+      contextLogger.warn('MCP context injection failed, continuing without context', {
+        error: (mcpError as Error).message,
+        userId,
+        errorType: (mcpError as Error).constructor.name,
+      });
+      
+      correlationService.addBreadcrumb(correlationId, 'gateway', 'mcp_injection_failed', {
+        error: (mcpError as Error).message,
+        fallbackStrategy: 'continue_without_context',
+      });
+      
+      // Continue without MCP context rather than failing the entire request
+      // This ensures graceful degradation when MCP services are unavailable
+    }
+    
     tracingService.closeSubsegment(mcpSubsegment, undefined, {
       mcpContextInjected: (llmRequest.metadata as any)?.mcpContextInjected || false,
     });
@@ -566,16 +816,112 @@ async function handleCompletions(
 
     correlationService.addBreadcrumb(correlationId, 'gateway', 'routing_determined', {
       strategy: routingCriteria.strategy,
+      maxCost: routingCriteria.maxCost,
+      maxLatency: routingCriteria.maxLatency,
     });
 
-    // Process through batched gateway service with optimization
+    // Process through batched gateway service with enhanced error handling
     const processingSubsegment = tracingService.createSubsegment('request_processing');
-    const response = await batchedGateway.processRequest(llmRequest, routingCriteria);
+    let response: LLMResponse;
+    
+    try {
+      // Use enhanced error handler with circuit breaker and retry logic
+      response = await ErrorHandler.executeWithCircuitBreaker(
+        () => ErrorHandler.executeWithRetry(
+          () => batchedGateway.processRequest(llmRequest, routingCriteria),
+          {
+            maxRetries: providerConfigs.find(p => p.enabled)?.retryAttempts || 3,
+            baseDelay: providerConfigs.find(p => p.enabled)?.retryDelay || 1000,
+            maxDelay: 30000,
+            retryCondition: (error) => {
+              // Don't retry validation errors or authentication errors
+              return !(error instanceof ValidationError || error instanceof AuthenticationError);
+            }
+          }
+        ),
+        'llm-processing',
+        correlationId
+      );
+    } catch (processingError) {
+      // Enhanced fallback strategy
+      contextLogger.warn('Primary processing failed, attempting fallback strategies', {
+        userId,
+        model: llmRequest.model,
+        error: (processingError as Error).message,
+      });
+
+      // Strategy 1: Try to serve stale cache if available
+      const staleResponse = await cacheManager.getStale(cacheKey);
+      if (staleResponse) {
+        contextLogger.info('Serving stale cached response as fallback', {
+          userId,
+          model: llmRequest.model,
+          cacheAge: Date.now() - new Date(staleResponse.metadata?.timestamp || 0).getTime(),
+        });
+
+        correlationService.addBreadcrumb(correlationId, 'gateway', 'stale_cache_fallback', {
+          reason: 'Provider processing failed',
+          cacheAge: Date.now() - new Date(staleResponse.metadata?.timestamp || 0).getTime(),
+        });
+
+        return {
+          statusCode: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Correlation-ID': correlationId,
+            'X-Request-Cached': 'true',
+            'X-Cache-Stale': 'true',
+            'X-Provider-Used': staleResponse.provider,
+            'X-Fallback-Strategy': 'stale-cache',
+            'Warning': '110 - "Response is stale due to service unavailability"',
+          },
+          body: JSON.stringify({
+            ...staleResponse,
+            cached: true,
+            stale: true,
+            metadata: {
+              ...staleResponse.metadata,
+              servedFromStaleCache: true,
+              fallbackReason: 'Provider processing failed',
+              fallbackTimestamp: new Date().toISOString(),
+            },
+          }),
+        };
+      }
+
+      // Strategy 2: If it's a circuit breaker error, provide helpful response
+      if (processingError instanceof CircuitBreakerError) {
+        throw new ProviderError(
+          'All AI providers are temporarily unavailable due to high error rates. Please try again in a few minutes.',
+          'circuit-breaker'
+        );
+      }
+
+      // Strategy 3: If it's a timeout, suggest retry with simpler request
+      if (processingError instanceof TimeoutError) {
+        throw new TimeoutError(
+          'Request processing timed out. Please try again with a shorter message or simpler request.',
+          (processingError as TimeoutError).timeoutMs
+        );
+      }
+
+      // Re-throw the original error if no fallback strategies work
+      throw processingError;
+    }
+    
     tracingService.closeSubsegment(processingSubsegment, undefined, {
       provider: response.provider,
       cached: response.cached || false,
       cost: response.cost.total,
+      tokens: response.usage.totalTokens,
     });
+
+    // Cache the successful response
+    if (!response.cached) {
+      await cacheManager.set(cacheKey, response, {
+        ttl: parseInt(process.env.RESPONSE_CACHE_TTL || '300'), // 5 minutes default
+      });
+    }
 
     // Record comprehensive metrics
     await metricsService.recordRequestMetrics(
@@ -592,6 +938,7 @@ async function handleCompletions(
       cost: response.cost.total,
       latency: response.latency,
       cached: response.cached || false,
+      timestamp: new Date().toISOString(),
     });
 
     contextLogger.info('LLM completion successful', {
@@ -616,11 +963,17 @@ async function handleCompletions(
       cached: response.cached || false,
     });
 
-    // Add optimization headers
-    const optimizationHeaders = {
+    // Transform response for client consumption
+    const transformedResponse = transformLLMResponse(response, llmRequest, correlationId);
+
+    // Add optimization and debugging headers
+    const responseHeaders = {
       'X-Request-Cached': String(response.cached || false),
       'X-Provider-Used': response.provider,
       'X-Cost-Optimized': 'true',
+      'X-Request-Tokens': response.usage.totalTokens.toString(),
+      'X-Request-Cost': response.cost.total.toFixed(6),
+      'X-Response-Latency': response.latency.toString(),
     };
 
     tracingService.closeSubsegment(subsegment, undefined, {
@@ -633,29 +986,40 @@ async function handleCompletions(
       headers: {
         'Content-Type': 'application/json',
         'X-Correlation-ID': correlationId,
-        ...optimizationHeaders,
+        ...responseHeaders,
       },
-      body: JSON.stringify(response),
+      body: JSON.stringify(transformedResponse),
     };
   } catch (error) {
-    contextLogger.error('LLM completion failed', error as Error, { userId });
-    
-    correlationService.addBreadcrumb(correlationId, 'gateway', 'completion_error', {
-      error: (error as Error).message,
+    const errorInstance = error as Error;
+    contextLogger.error('LLM completion failed', errorInstance, { 
+      userId,
+      path: event.path,
+      method: event.httpMethod,
     });
     
-    // Record error metrics
+    correlationService.addBreadcrumb(correlationId, 'gateway', 'completion_error', {
+      error: errorInstance.message,
+      errorType: errorInstance.constructor.name,
+      timestamp: new Date().toISOString(),
+    });
+    
+    // Record error metrics with detailed context
+    const errorType = error instanceof ValidationError ? 'VALIDATION_ERROR' : 
+                     errorInstance.message.includes('Circuit breaker') ? 'PROVIDER_UNAVAILABLE' :
+                     'LLM_COMPLETION_ERROR';
+    
     await metricsService.recordErrorMetrics(
-      'unknown',
-      'unknown',
-      'LLM_COMPLETION_ERROR',
+      'completion',
+      userId,
+      errorType,
       correlationId,
       userId
     );
 
-    tracingService.closeSubsegment(subsegment, error as Error, {
+    tracingService.closeSubsegment(subsegment, errorInstance, {
       success: false,
-      errorType: 'LLM_COMPLETION_ERROR',
+      errorType,
     });
     
     throw error;
@@ -723,6 +1087,117 @@ function createErrorResponse(
         timestamp: new Date().toISOString(),
       },
     }),
+  };
+}
+
+/**
+ * Create detailed error response with comprehensive error information
+ */
+function createDetailedErrorResponse(
+  statusCode: number,
+  errorType: ErrorType,
+  message: string,
+  correlationId: string,
+  retryAfter?: number,
+  validationErrors?: Array<{ field: string; message: string }>
+): APIGatewayProxyResult {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'X-Correlation-ID': correlationId,
+  };
+
+  if (retryAfter) {
+    headers['Retry-After'] = retryAfter.toString();
+  }
+
+  const errorBody: any = {
+    error: {
+      type: errorType,
+      message,
+      code: `E${statusCode}_${errorType}`,
+      correlationId,
+      timestamp: new Date().toISOString(),
+    },
+  };
+
+  if (validationErrors && validationErrors.length > 0) {
+    errorBody.error.details = {
+      validationErrors,
+    };
+  }
+
+  // Add helpful error context based on error type
+  switch (errorType) {
+    case ErrorType.RATE_LIMIT_EXCEEDED:
+      errorBody.error.details = {
+        ...errorBody.error.details,
+        retryAfter,
+        documentation: 'https://docs.ai-gateway.com/rate-limits',
+      };
+      break;
+    case ErrorType.PROVIDER_UNAVAILABLE:
+      errorBody.error.details = {
+        ...errorBody.error.details,
+        suggestion: 'All providers are currently unavailable. Please try again later.',
+        documentation: 'https://docs.ai-gateway.com/provider-status',
+      };
+      break;
+    case ErrorType.AUTHENTICATION_ERROR:
+      errorBody.error.details = {
+        ...errorBody.error.details,
+        suggestion: 'Check your API key and ensure it has the required permissions.',
+        documentation: 'https://docs.ai-gateway.com/authentication',
+      };
+      break;
+  }
+
+  return {
+    statusCode,
+    headers,
+    body: JSON.stringify(errorBody),
+  };
+}
+
+/**
+ * Transform LLM response for client consumption
+ */
+function transformLLMResponse(
+  response: LLMResponse,
+  originalRequest: LLMRequest,
+  correlationId: string
+): any {
+  return {
+    id: response.id,
+    object: 'chat.completion',
+    created: Math.floor(Date.now() / 1000),
+    model: response.model,
+    choices: response.choices.map((choice, index) => ({
+      index,
+      message: {
+        role: choice.message.role,
+        content: choice.message.content,
+        ...(choice.message.functionCall && { function_call: choice.message.functionCall }),
+      },
+      finish_reason: choice.finishReason,
+    })),
+    usage: {
+      prompt_tokens: response.usage.promptTokens,
+      completion_tokens: response.usage.completionTokens,
+      total_tokens: response.usage.totalTokens,
+    },
+    // Gateway-specific metadata
+    gateway_metadata: {
+      provider: response.provider,
+      cost: response.cost,
+      latency: response.latency,
+      cached: response.cached || false,
+      correlation_id: correlationId,
+      request_id: response.id,
+      ...(originalRequest.metadata?.mcpContextInjected && {
+        mcp_context_injected: true,
+        mcp_tool_calls: originalRequest.metadata.mcpToolCalls || [],
+      }),
+    },
   };
 }
 
@@ -885,6 +1360,72 @@ async function handleMetricsCheck(correlationId: string): Promise<APIGatewayProx
       },
       body: JSON.stringify({
         error: 'Metrics check failed',
+        correlationId,
+        timestamp: new Date().toISOString(),
+      }),
+    };
+  }
+}
+
+async function handleCircuitBreakerCheck(correlationId: string): Promise<APIGatewayProxyResult> {
+  const subsegment = tracingService.createSubsegment('circuit_breaker_check');
+  
+  try {
+    const circuitBreakerStatus = ErrorHandler.getCircuitBreakerStatus();
+    const mcpHealthStatus = await mcpContextService.getHealthStatus();
+    
+    // Calculate overall system health based on circuit breaker states
+    const openCircuitBreakers = Object.values(circuitBreakerStatus).filter(cb => cb.state === 'OPEN');
+    const degradedCircuitBreakers = Object.values(circuitBreakerStatus).filter(cb => cb.state === 'HALF_OPEN');
+    
+    let systemStatus: 'healthy' | 'degraded' | 'unhealthy';
+    if (openCircuitBreakers.length > 0) {
+      systemStatus = 'unhealthy';
+    } else if (degradedCircuitBreakers.length > 0 || mcpHealthStatus.status !== 'healthy') {
+      systemStatus = 'degraded';
+    } else {
+      systemStatus = 'healthy';
+    }
+
+    const response = {
+      systemStatus,
+      circuitBreakers: circuitBreakerStatus,
+      mcpService: mcpHealthStatus,
+      summary: {
+        totalCircuitBreakers: Object.keys(circuitBreakerStatus).length,
+        openCircuitBreakers: openCircuitBreakers.length,
+        degradedCircuitBreakers: degradedCircuitBreakers.length,
+        healthyCircuitBreakers: Object.values(circuitBreakerStatus).filter(cb => cb.state === 'CLOSED').length,
+      },
+      correlationId,
+      timestamp: new Date().toISOString(),
+    };
+
+    tracingService.closeSubsegment(subsegment);
+
+    const statusCode = systemStatus === 'healthy' ? 200 : systemStatus === 'degraded' ? 200 : 503;
+
+    return {
+      statusCode,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Correlation-ID': correlationId,
+        'X-System-Status': systemStatus,
+      },
+      body: JSON.stringify(response),
+    };
+  } catch (error) {
+    logger.error('Circuit breaker check failed', error as Error);
+    tracingService.closeSubsegment(subsegment, error as Error);
+
+    return {
+      statusCode: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Correlation-ID': correlationId,
+      },
+      body: JSON.stringify({
+        error: 'Circuit breaker check failed',
         correlationId,
         timestamp: new Date().toISOString(),
       }),
