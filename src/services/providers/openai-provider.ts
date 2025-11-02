@@ -195,11 +195,175 @@ export class OpenAIProvider extends BaseProvider {
     return promptCost + completionCost;
   }
 
+  /**
+   * Generate streaming completion
+   */
+  async *generateStream(request: LLMRequest): AsyncIterable<import('../../shared/types').LLMStreamChunk> {
+    const requestId = this.generateRequestId();
+
+    logger.info('Generating OpenAI streaming completion', {
+      requestId,
+      model: request.model,
+      messageCount: request.messages.length,
+    });
+
+    try {
+      // If no API key, generate mock stream
+      if (!this.apiKey) {
+        yield* this.generateMockStream(request, requestId);
+        return;
+      }
+
+      const openaiRequest = {
+        model: request.model,
+        messages: request.messages,
+        temperature: request.temperature,
+        max_tokens: request.maxTokens,
+        top_p: request.topP,
+        frequency_penalty: request.frequencyPenalty,
+        presence_penalty: request.presencePenalty,
+        stop: request.stop,
+        stream: true,
+        user: request.user,
+      };
+
+      const response = await fetch(`${this.baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+          'User-Agent': 'AI-Model-Gateway/1.0',
+        },
+        body: JSON.stringify(openaiRequest),
+      });
+
+      if (!response.ok) {
+        const errorData = (await response.json().catch(() => ({}))) as any;
+        throw new Error(
+          `OpenAI API error: ${response.status} - ${errorData.error?.message || response.statusText}`
+        );
+      }
+
+      if (!response.body) {
+        throw new Error('No response body for streaming');
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split('\n').filter(line => line.trim() !== '');
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6);
+              if (data === '[DONE]') {
+                return;
+              }
+
+              try {
+                const parsed = JSON.parse(data);
+                const streamChunk: import('../../shared/types').LLMStreamChunk = {
+                  id: parsed.id || requestId,
+                  object: parsed.object,
+                  created: parsed.created,
+                  model: parsed.model,
+                  choices: parsed.choices.map((choice: any) => ({
+                    index: choice.index,
+                    delta: {
+                      role: choice.delta?.role,
+                      content: choice.delta?.content,
+                      functionCall: choice.delta?.function_call,
+                    },
+                    finishReason: choice.finish_reason,
+                  })),
+                  usage: parsed.usage,
+                };
+
+                yield streamChunk;
+              } catch (parseError) {
+                logger.warn('Failed to parse streaming chunk', { data, error: parseError });
+              }
+            }
+          }
+        }
+      } finally {
+        reader.releaseLock();
+      }
+    } catch (error) {
+      logger.error('OpenAI streaming failed', error as Error, { requestId });
+      throw new ProviderError(`OpenAI streaming error: ${(error as Error).message}`, this.name);
+    }
+  }
+
+  /**
+   * Generate mock streaming response
+   */
+  private async *generateMockStream(
+    request: LLMRequest,
+    requestId: string
+  ): AsyncIterable<import('../../shared/types').LLMStreamChunk> {
+    const mockContent = `Mock streaming response from OpenAI ${request.model}. This is a demonstration response since no API key is configured.`;
+    const words = mockContent.split(' ');
+
+    for (let i = 0; i < words.length; i++) {
+      const content = i === 0 ? words[i] : ` ${words[i]}`;
+      
+      yield {
+        id: requestId,
+        object: 'chat.completion.chunk',
+        created: Math.floor(Date.now() / 1000),
+        model: request.model,
+        choices: [
+          {
+            index: 0,
+            delta: {
+              content: content,
+            },
+            finishReason: i === words.length - 1 ? 'stop' : undefined,
+          },
+        ],
+      };
+
+      // Simulate streaming delay
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+  }
+
   protected async performHealthCheck(): Promise<void> {
-    // TODO: Implement actual health check
-    // For now, just check if API key is configured
-    if (!this.apiKey) {
-      throw new Error('OpenAI API key not configured');
+    try {
+      if (!this.apiKey) {
+        throw new Error('OpenAI API key not configured');
+      }
+
+      // Test with a minimal request to verify connectivity
+      const testRequest = {
+        model: 'gpt-3.5-turbo',
+        messages: [{ role: 'user', content: 'test' }],
+        max_tokens: 1,
+        temperature: 0,
+      };
+
+      const response = await fetch(`${this.baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+          'User-Agent': 'AI-Model-Gateway/1.0',
+        },
+        body: JSON.stringify(testRequest),
+      });
+
+      if (!response.ok) {
+        throw new Error(`OpenAI health check failed: ${response.status}`);
+      }
+    } catch (error) {
+      throw new Error(`OpenAI health check failed: ${(error as Error).message}`);
     }
   }
 

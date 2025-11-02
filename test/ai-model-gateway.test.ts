@@ -13,20 +13,18 @@ describe('AI Model Gateway Stack Tests', () => {
 
   test('Security Stack creates successfully', () => {
     // WHEN
-    const securityStack = new SecurityStack(app, 'TestSecurityStack');
+    const securityStack = new SecurityStack(app, 'TestSecurityStack', {});
 
     // THEN
     const template = Template.fromStack(securityStack);
 
-    // Verify stack has outputs
-    template.hasOutput('SecurityStackReady', {
-      Value: 'true',
-    });
+    // Verify VPC is created
+    template.hasResourceProperties('AWS::EC2::VPC', {});
   });
 
   test('Main Application Stack creates successfully', () => {
     // GIVEN
-    const securityStack = new SecurityStack(app, 'TestSecurityStack');
+    const securityStack = new SecurityStack(app, 'TestSecurityStack', {});
 
     // WHEN
     const appStack = new AiModelGatewayStack(app, 'TestAppStack', {
@@ -36,15 +34,13 @@ describe('AI Model Gateway Stack Tests', () => {
     // THEN
     const template = Template.fromStack(appStack);
 
-    // Verify stack has required outputs
-    template.hasOutput('Environment', {});
-    template.hasOutput('Region', {});
-    template.hasOutput('StackName', {});
+    // Verify API Gateway is created
+    template.hasResourceProperties('AWS::ApiGateway::RestApi', {});
   });
 
   test('Observability Stack creates successfully', () => {
     // GIVEN
-    const securityStack = new SecurityStack(app, 'TestSecurityStack');
+    const securityStack = new SecurityStack(app, 'TestSecurityStack', {});
     const appStack = new AiModelGatewayStack(app, 'TestAppStack', {
       securityResources: securityStack.securityResources,
     });
@@ -57,22 +53,22 @@ describe('AI Model Gateway Stack Tests', () => {
     // THEN
     const template = Template.fromStack(observabilityStack);
 
-    // Verify stack has outputs
-    template.hasOutput('MonitoringNamespace', {});
-    template.hasOutput('ObservabilityStackReady', {
-      Value: 'true',
-    });
+    // Verify CloudWatch dashboard is created
+    template.hasResourceProperties('AWS::CloudWatch::Dashboard', {});
   });
 
   test('Environment configuration works correctly', () => {
     // Test that environment variables are properly handled
     process.env.ENVIRONMENT = 'test';
 
-    const appStack = new AiModelGatewayStack(app, 'TestAppStack', {});
+    const securityStack = new SecurityStack(app, 'TestSecurityStack', {});
+    const appStack = new AiModelGatewayStack(app, 'TestAppStack', {
+      securityResources: securityStack.securityResources,
+    });
     const template = Template.fromStack(appStack);
 
-    // Verify environment is set in outputs
-    template.hasOutput('Environment', {});
+    // Verify DynamoDB tables are created
+    template.hasResourceProperties('AWS::DynamoDB::Table', {});
 
     // Clean up
     delete process.env.ENVIRONMENT;
@@ -80,7 +76,7 @@ describe('AI Model Gateway Stack Tests', () => {
 
   test('Stack dependencies are properly configured', () => {
     // GIVEN
-    const securityStack = new SecurityStack(app, 'TestSecurityStack');
+    const securityStack = new SecurityStack(app, 'TestSecurityStack', {});
     const appStack = new AiModelGatewayStack(app, 'TestAppStack', {
       securityResources: securityStack.securityResources,
     });

@@ -7,6 +7,8 @@ import {
   ProviderType,
 } from '../../shared/types';
 import { ProviderAdapter } from '../providers/base-provider';
+import { ProviderMonitor } from '../providers/provider-monitor';
+import { ProviderHealthService } from '../providers/provider-health';
 import { Logger } from '../../shared/utils';
 
 const logger = new Logger('ProviderRouter');
@@ -19,8 +21,17 @@ export class ProviderRouter {
   private providers: Map<string, ProviderAdapter> = new Map();
   private providerConfigs: Map<string, ProviderConfig> = new Map();
   private providerMetrics: Map<string, ProviderMetrics> = new Map();
+  private monitor: ProviderMonitor;
+  private healthService: ProviderHealthService;
 
-  constructor(providers: ProviderAdapter[], configs: ProviderConfig[]) {
+  constructor(
+    providers: ProviderAdapter[], 
+    configs: ProviderConfig[],
+    monitor?: ProviderMonitor,
+    healthService?: ProviderHealthService
+  ) {
+    this.monitor = monitor || new ProviderMonitor();
+    this.healthService = healthService || new ProviderHealthService(this.monitor);
     // Register providers
     providers.forEach(provider => {
       this.providers.set(provider.name, provider);
@@ -32,12 +43,18 @@ export class ProviderRouter {
         totalCost: 0,
         lastUsed: new Date(),
       });
+      
+      // Register with health service
+      this.healthService.registerProvider(provider);
     });
 
     // Register configs
     configs.forEach(config => {
       this.providerConfigs.set(config.name, config);
     });
+
+    // Start health checks
+    this.healthService.startHealthChecks();
 
     logger.info('Provider router initialized', {
       providerCount: providers.length,
@@ -79,6 +96,10 @@ export class ProviderRouter {
 
       // Update metrics
       this.updateMetrics(provider.name, true, Date.now() - startTime, response.cost.total);
+      
+      // Record with monitoring system
+      await this.monitor.recordRequest(provider.name, request, response, true);
+      this.healthService.recordProviderResult(provider.name, true);
 
       logger.info('Request completed successfully', {
         requestId,
@@ -90,6 +111,14 @@ export class ProviderRouter {
       return response;
     } catch (error) {
       logger.error('Request routing failed', error as Error, { requestId });
+      
+      // Record failure with monitoring system if we have a provider
+      const selectedProvider = await this.selectProvider(request, criteria);
+      if (selectedProvider) {
+        await this.monitor.recordRequest(selectedProvider.name, request, {} as LLMResponse, false, error as Error);
+        this.healthService.recordProviderResult(selectedProvider.name, false);
+      }
+      
       throw error;
     }
   }
@@ -161,9 +190,9 @@ export class ProviderRouter {
         continue;
       }
 
-      // Check provider health
-      const isAvailable = await provider.isAvailable();
-      if (isAvailable) {
+      // Check provider health and circuit breaker status
+      const isHealthy = this.healthService.isProviderAvailable(name);
+      if (isHealthy) {
         available.push(provider);
       }
     }

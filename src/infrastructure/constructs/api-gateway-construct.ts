@@ -1,3 +1,4 @@
+import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import {
   RestApi,
@@ -6,6 +7,8 @@ import {
   RequestValidator,
   Model,
   JsonSchemaType,
+  TokenAuthorizer,
+  AuthorizationType,
 } from 'aws-cdk-lib/aws-apigateway';
 import { Function } from 'aws-cdk-lib/aws-lambda';
 
@@ -14,6 +17,7 @@ export interface ApiGatewayConstructProps {
   description: string;
   gatewayFunction: Function;
   mcpFunction: Function;
+  authorizerFunction?: Function;
 }
 
 /**
@@ -51,6 +55,17 @@ export class ApiGatewayConstruct extends Construct {
       validateRequestBody: true,
       validateRequestParameters: true,
     });
+
+    // Create Lambda authorizer if provided
+    let authorizer: TokenAuthorizer | undefined;
+    if (props.authorizerFunction) {
+      authorizer = new TokenAuthorizer(this, 'ApiAuthorizer', {
+        handler: props.authorizerFunction,
+        identitySource: 'method.request.header.Authorization',
+        authorizerName: 'ApiKeyAuthorizer',
+        resultsCacheTtl: cdk.Duration.minutes(5),
+      });
+    }
 
     // Create Lambda integrations
     const gatewayIntegration = new LambdaIntegration(props.gatewayFunction, {
@@ -93,7 +108,7 @@ export class ApiGatewayConstruct extends Construct {
     // Main gateway routes
     const v1 = this.api.root.addResource('api').addResource('v1');
 
-    // LLM completion endpoint
+    // LLM completion endpoint (protected)
     const completions = v1.addResource('completions');
     completions.addMethod('POST', gatewayIntegration, {
       requestValidator,
@@ -101,35 +116,49 @@ export class ApiGatewayConstruct extends Construct {
         'application/json': llmRequestModel,
       },
       methodResponses: [{ statusCode: '200' }, { statusCode: '400' }, { statusCode: '429' }],
+      authorizationType: authorizer ? AuthorizationType.CUSTOM : AuthorizationType.NONE,
+      authorizer: authorizer,
     });
 
-    // Health check endpoint
+    // Health check endpoint (public)
     const health = v1.addResource('health');
     health.addMethod('GET', gatewayIntegration);
 
-    // MCP endpoints
+    // MCP endpoints (protected)
     const mcp = v1.addResource('mcp');
 
     // MCP tools endpoint
     const tools = mcp.addResource('tools');
     tools.addMethod('POST', mcpIntegration, {
       requestValidator,
+      authorizationType: authorizer ? AuthorizationType.CUSTOM : AuthorizationType.NONE,
+      authorizer: authorizer,
     });
 
     // MCP resources endpoint
     const resources = mcp.addResource('resources');
-    resources.addMethod('GET', mcpIntegration);
+    resources.addMethod('GET', mcpIntegration, {
+      authorizationType: authorizer ? AuthorizationType.CUSTOM : AuthorizationType.NONE,
+      authorizer: authorizer,
+    });
     resources.addMethod('POST', mcpIntegration, {
       requestValidator,
+      authorizationType: authorizer ? AuthorizationType.CUSTOM : AuthorizationType.NONE,
+      authorizer: authorizer,
     });
 
-    // Product search endpoint (convenience endpoint for direct product queries)
+    // Product search endpoint (protected)
     const products = v1.addResource('products');
-    products.addMethod('GET', mcpIntegration);
+    products.addMethod('GET', mcpIntegration, {
+      authorizationType: authorizer ? AuthorizationType.CUSTOM : AuthorizationType.NONE,
+      authorizer: authorizer,
+    });
 
     const productSearch = products.addResource('search');
     productSearch.addMethod('POST', mcpIntegration, {
       requestValidator,
+      authorizationType: authorizer ? AuthorizationType.CUSTOM : AuthorizationType.NONE,
+      authorizer: authorizer,
     });
   }
 }

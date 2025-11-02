@@ -2,14 +2,9 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [master]
-  pull_request:
     branches: [master, develop]
-
-permissions:
-  contents: read
-  security-events: write
-  actions: read
+  pull_request:
+    branches: [master]
 
 env:
   NODE_VERSION: '18'
@@ -46,7 +41,7 @@ jobs:
         run: npm run build
         
       - name: Synthesize CDK
-        run: echo "CDK synth skipped - stack files not yet implemented"
+        run: npm run synth
 
   security-scan:
     name: Security Scan

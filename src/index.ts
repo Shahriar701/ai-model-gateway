@@ -8,9 +8,11 @@ export { handler as mcpHandler } from './lambda/mcp-server';
 // Services
 export * from './services/providers';
 export * from './services/mcp';
+export * from './services/auth';
 
-// Shared utilities and types
-export * from './shared/types';
+// Shared utilities and types (avoid conflicts by being specific)
+export * from './shared/types/product-types';
+export * from './shared/types/security-types';
 export * from './shared/utils/logger';
 export * from './shared/utils/error-handler';
 
