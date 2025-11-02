@@ -20,6 +20,7 @@ import { TracingService } from '../../services/monitoring/tracing-service';
 import { CorrelationService } from '../../services/monitoring/correlation-service';
 import { RunbookService } from '../../services/monitoring/runbook-service';
 import { SecurityMonitor } from '../../services/monitoring/security-monitor';
+import { AdminApi } from '../../services/config/admin-api';
 
 const logger = new Logger('GatewayHandler');
 const apiKeyService = new ApiKeyService();
@@ -32,6 +33,7 @@ const tracingService = TracingService.getInstance();
 const correlationService = CorrelationService.getInstance();
 const runbookService = RunbookService.getInstance();
 const securityMonitor = SecurityMonitor.getInstance();
+const adminApi = AdminApi.getInstance();
 
 // Initialize providers and router
 const providers = [new OpenAIProvider(), new BedrockProvider()];
@@ -207,6 +209,12 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     if (sanitizedEvent.path === '/api/v1/health/metrics' && sanitizedEvent.httpMethod === 'GET') {
       const metricsResponse = await handleMetricsCheck(correlationId);
       return finalizeResponse(metricsResponse, event, correlationId);
+    }
+
+    // Handle admin API endpoints (no authentication required here as AdminApi handles it)
+    if (sanitizedEvent.path.startsWith('/api/v1/admin/')) {
+      const adminResponse = await adminApi.handleRequest(sanitizedEvent);
+      return finalizeResponse(adminResponse, event, correlationId);
     }
 
     // Authenticate request
