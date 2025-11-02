@@ -1,5 +1,6 @@
 import { SecurityLogger, SecurityMetrics } from '../../shared/utils/security-logger';
 import { Logger } from '../../shared/utils';
+import { RunbookService } from './runbook-service';
 
 /**
  * Security monitoring service for real-time threat detection and alerting
@@ -70,9 +71,9 @@ export class SecurityMonitor {
         dangerousPatterns: realTimeMetrics.events.dangerousPatterns,
       });
 
-      // Trigger alerts if necessary
+      // Trigger alerts and automated response if necessary
       if (alerts.length > 0) {
-        await this.processAlerts(alerts);
+        await this.processAlerts(alerts, analysis);
       }
 
       return analysis;
@@ -237,9 +238,11 @@ export class SecurityMonitor {
   }
 
   /**
-   * Process and escalate security alerts
+   * Process and escalate security alerts with automated response
    */
-  private async processAlerts(alerts: SecurityAlert[]): Promise<void> {
+  private async processAlerts(alerts: SecurityAlert[], analysis: SecurityAnalysisResult): Promise<void> {
+    const runbookService = RunbookService.getInstance();
+
     for (const alert of alerts) {
       this.logger.warn('Security alert triggered', {
         type: alert.type,
@@ -249,12 +252,25 @@ export class SecurityMonitor {
         actualValue: alert.actualValue,
       });
 
-      // In production, implement:
-      // - Send to PagerDuty/OpsGenie for critical alerts
-      // - Create CloudWatch alarms
-      // - Send Slack notifications
-      // - Update security dashboard
-      // - Trigger automated responses (e.g., IP blocking)
+      // Trigger automated incident response for critical and high severity alerts
+      if (alert.severity === 'CRITICAL' || alert.severity === 'HIGH') {
+        try {
+          const response = await runbookService.executeIncidentResponse(alert, analysis);
+          
+          this.logger.info('Automated incident response executed', {
+            incidentId: response.incidentId,
+            actionsExecuted: response.actions.length,
+            resolved: response.resolved,
+            escalated: response.escalated,
+          });
+
+        } catch (error) {
+          this.logger.error('Automated incident response failed', error as Error, {
+            alertType: alert.type,
+            severity: alert.severity,
+          });
+        }
+      }
 
       if (alert.severity === 'CRITICAL') {
         await this.triggerCriticalAlert(alert);
