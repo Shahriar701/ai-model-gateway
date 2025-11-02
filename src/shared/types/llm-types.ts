@@ -49,6 +49,8 @@ export interface RequestMetadata {
   applicationId?: string;
   tags?: string[];
   customFields?: Record<string, any>;
+  mcpContextInjected?: boolean;
+  mcpToolCalls?: string[];
 }
 
 /**

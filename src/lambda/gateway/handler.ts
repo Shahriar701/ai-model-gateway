@@ -3,6 +3,7 @@ import { Logger, ErrorHandler, AuthenticationError, RateLimitError } from '../..
 import { ApiKeyService, RateLimiter } from '../../services/auth';
 import { ProviderRouter } from '../../services/router';
 import { OpenAIProvider, BedrockProvider } from '../../services/providers';
+import { MCPContextService } from '../../services/mcp';
 import { ValidationHelper } from '../../shared/validation';
 import { LLMRequest, RateLimitTier } from '../../shared/types';
 import {
@@ -17,6 +18,7 @@ const logger = new Logger('GatewayHandler');
 const apiKeyService = new ApiKeyService();
 const rateLimiter = new RateLimiter();
 const securityLogger = SecurityLogger.getInstance();
+const mcpContextService = new MCPContextService();
 
 // Initialize providers and router
 const providers = [new OpenAIProvider(), new BedrockProvider()];
@@ -51,6 +53,15 @@ const providerConfigs = [
 ];
 
 const router = new ProviderRouter(providers, providerConfigs);
+
+// Initialize MCP context service
+let mcpInitialized = false;
+const initializeMCP = async () => {
+  if (!mcpInitialized) {
+    await mcpContextService.initialize();
+    mcpInitialized = true;
+  }
+};
 
 /**
  * Main API Gateway Lambda handler for AI Model Gateway
@@ -282,9 +293,12 @@ async function handleCompletions(
       throw new Error('Request body is required');
     }
 
+    // Initialize MCP service if needed
+    await initializeMCP();
+
     // Validate request
     const requestData = JSON.parse(event.body);
-    const llmRequest = ValidationHelper.validateLLMRequest(requestData);
+    let llmRequest = ValidationHelper.validateLLMRequest(requestData);
 
     // Add user context to request
     llmRequest.metadata = {
@@ -292,6 +306,9 @@ async function handleCompletions(
       userId,
       customFields: { correlationId },
     };
+
+    // Inject MCP context if applicable
+    llmRequest = await mcpContextService.injectMCPContext(llmRequest);
 
     // Route to appropriate provider
     const response = await router.routeRequest(llmRequest);
@@ -303,6 +320,8 @@ async function handleCompletions(
       tokens: response.usage.totalTokens,
       cost: response.cost.total,
       latency: response.latency,
+      mcpContextInjected: (llmRequest.metadata as any)?.mcpContextInjected || false,
+      mcpToolCalls: (llmRequest.metadata as any)?.mcpToolCalls || [],
     });
 
     return {

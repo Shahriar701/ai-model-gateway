@@ -119,6 +119,11 @@ export class MCPServer {
                   type: 'boolean',
                   description: 'Filter by availability (true for in-stock only)',
                 },
+                limit: {
+                  type: 'number',
+                  description: 'Maximum number of results to return (default: 10)',
+                  default: 10,
+                },
               },
               required: ['query'],
             },
@@ -147,8 +152,57 @@ export class MCPServer {
                   type: 'string',
                   description: 'Product category name',
                 },
+                limit: {
+                  type: 'number',
+                  description: 'Maximum number of results to return (default: 20)',
+                  default: 20,
+                },
               },
               required: ['category'],
+            },
+          },
+          {
+            name: 'get_product_recommendations',
+            description: 'Get product recommendations based on a product or category',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                basedOnProductId: {
+                  type: 'string',
+                  description: 'Product ID to base recommendations on',
+                },
+                category: {
+                  type: 'string',
+                  description: 'Category to get recommendations from',
+                },
+                limit: {
+                  type: 'number',
+                  description: 'Maximum number of recommendations (default: 5)',
+                  default: 5,
+                },
+              },
+            },
+          },
+          {
+            name: 'update_product_availability',
+            description: 'Update product availability and inventory (admin function)',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                productId: {
+                  type: 'string',
+                  description: 'Product ID to update',
+                },
+                inStock: {
+                  type: 'boolean',
+                  description: 'Whether the product is in stock',
+                },
+                quantity: {
+                  type: 'number',
+                  description: 'Available quantity',
+                },
+              },
+              required: ['productId', 'inStock'],
             },
           },
         ],
@@ -169,6 +223,10 @@ export class MCPServer {
           return await this.executeGetProduct(request.id, args);
         case 'get_category_products':
           return await this.executeGetCategoryProducts(request.id, args);
+        case 'get_product_recommendations':
+          return await this.executeGetProductRecommendations(request.id, args);
+        case 'update_product_availability':
+          return await this.executeUpdateProductAvailability(request.id, args);
         default:
           throw new Error(`Unknown tool: ${name}`);
       }
@@ -245,7 +303,10 @@ export class MCPServer {
     const productService = new ProductService();
 
     const products = await productService.getProductsByCategory(args.category);
-    const formattedResults = productService.formatProductsForLLM(products);
+    
+    // Apply limit if specified
+    const limitedProducts = args.limit ? products.slice(0, args.limit) : products;
+    const formattedResults = productService.formatProductsForLLM(limitedProducts);
 
     return {
       jsonrpc: '2.0',
@@ -259,6 +320,82 @@ export class MCPServer {
         ],
       },
     };
+  }
+
+  private async executeGetProductRecommendations(id: string | number, args: any): Promise<MCPResponse> {
+    const productService = new ProductService();
+
+    const recommendations = await productService.getProductRecommendations(
+      args.basedOnProductId,
+      args.category,
+      args.limit || 5
+    );
+
+    if (recommendations.length === 0) {
+      return {
+        jsonrpc: '2.0',
+        id,
+        result: {
+          content: [
+            {
+              type: 'text',
+              text: 'No recommendations found for the specified criteria.',
+            },
+          ],
+        },
+      };
+    }
+
+    const formattedResults = productService.formatProductsForLLM(recommendations);
+    const contextText = args.basedOnProductId 
+      ? `Recommendations based on product ${args.basedOnProductId}:`
+      : `Recommendations for category "${args.category}":`;
+
+    return {
+      jsonrpc: '2.0',
+      id,
+      result: {
+        content: [
+          {
+            type: 'text',
+            text: `${contextText}\n\n${formattedResults}`,
+          },
+        ],
+      },
+    };
+  }
+
+  private async executeUpdateProductAvailability(id: string | number, args: any): Promise<MCPResponse> {
+    const productService = new ProductService();
+
+    try {
+      await productService.updateProductAvailability(args.productId, {
+        inStock: args.inStock,
+        quantity: args.quantity,
+      });
+
+      return {
+        jsonrpc: '2.0',
+        id,
+        result: {
+          content: [
+            {
+              type: 'text',
+              text: `Product ${args.productId} availability updated successfully. In Stock: ${args.inStock}${args.quantity ? `, Quantity: ${args.quantity}` : ''}`,
+            },
+          ],
+        },
+      };
+    } catch (error) {
+      return {
+        jsonrpc: '2.0',
+        id,
+        error: {
+          code: -32603,
+          message: `Failed to update product availability: ${(error as Error).message}`,
+        },
+      };
+    }
   }
 
   private async listResources(request: MCPRequest): Promise<MCPResponse> {

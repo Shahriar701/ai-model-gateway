@@ -251,6 +251,89 @@ export class CacheManager {
   }
 
   /**
+   * Generic cache set method
+   */
+  async setCache<T>(namespace: string, key: string, data: T, ttlSeconds?: number): Promise<void> {
+    if (!this.cacheService) return;
+
+    try {
+      const cacheEntry: CacheEntry<T> = {
+        data,
+        timestamp: Date.now(),
+        version: '1.0',
+      };
+
+      const cacheKey = this.generateCacheKey(namespace, key);
+      const value = JSON.stringify(cacheEntry);
+
+      await this.cacheService.set(cacheKey, value, ttlSeconds || this.config.defaultTtlSeconds);
+
+      logger.debug('Cached data', {
+        namespace,
+        key: key.substring(0, 16),
+        ttl: ttlSeconds || this.config.defaultTtlSeconds,
+      });
+    } catch (error) {
+      logger.error(
+        `Failed to cache data for ${namespace}:${key}`,
+        error instanceof Error ? error : new Error(String(error))
+      );
+    }
+  }
+
+  /**
+   * Generic cache get method
+   */
+  async getCache<T>(namespace: string, key: string): Promise<T | null> {
+    if (!this.cacheService) return null;
+
+    try {
+      const cacheKey = this.generateCacheKey(namespace, key);
+      const cached = await this.cacheService.get(cacheKey);
+
+      if (!cached) {
+        logger.debug('Cache miss', { namespace, key: key.substring(0, 16) });
+        return null;
+      }
+
+      const cacheEntry: CacheEntry<T> = JSON.parse(cached);
+
+      logger.debug('Cache hit', {
+        namespace,
+        key: key.substring(0, 16),
+        age: Date.now() - cacheEntry.timestamp,
+      });
+
+      return cacheEntry.data;
+    } catch (error) {
+      logger.error(
+        `Failed to get cached data for ${namespace}:${key}`,
+        error instanceof Error ? error : new Error(String(error))
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Generic cache delete method
+   */
+  async deleteCache(namespace: string, key: string): Promise<void> {
+    if (!this.cacheService) return;
+
+    try {
+      const cacheKey = this.generateCacheKey(namespace, key);
+      await this.cacheService.del(cacheKey);
+
+      logger.debug('Cache entry deleted', { namespace, key: key.substring(0, 16) });
+    } catch (error) {
+      logger.error(
+        `Failed to delete cached data for ${namespace}:${key}`,
+        error instanceof Error ? error : new Error(String(error))
+      );
+    }
+  }
+
+  /**
    * Get cache statistics (if supported by cache service)
    */
   async getCacheStats(): Promise<any> {
