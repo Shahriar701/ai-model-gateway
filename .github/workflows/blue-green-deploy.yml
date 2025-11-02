@@ -1,0 +1,349 @@
+name: Blue-Green Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      deployment_strategy:
+        description: 'Deployment strategy'
+        required: true
+        default: 'blue-green'
+        type: choice
+        options:
+          - blue-green
+          - rolling
+          - canary
+      rollback_on_failure:
+        description: 'Automatically rollback on failure'
+        required: false
+        default: true
+        type: boolean
+
+env:
+  NODE_VERSION: '18'
+  AWS_REGION: 'us-east-1'
+
+jobs:
+  pre-deployment-validation:
+    name: Pre-deployment Validation
+    runs-on: ubuntu-latest
+    outputs:
+      deployment-id: ${{ steps.generate-id.outputs.deployment-id }}
+      current-version: ${{ steps.get-version.outputs.version }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Generate deployment ID
+        id: generate-id
+        run: |
+          DEPLOYMENT_ID="deploy-$(date +%Y%m%d-%H%M%S)-$(git rev-parse --short HEAD)"
+          echo "deployment-id=$DEPLOYMENT_ID" >> $GITHUB_OUTPUT
+          echo "Generated deployment ID: $DEPLOYMENT_ID"
+          
+      - name: Get current version
+        id: get-version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Current version: $VERSION"
+          
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Run comprehensive tests
+        run: |
+          npm run test:unit
+          npm run test:integration
+          npm run test:e2e
+          
+      - name: Security scan
+        run: |
+          npm audit --audit-level moderate
+          npm run security:scan
+          
+      - name: Build and validate
+        run: |
+          npm run build
+          npm run synth
+          npm run validate:infrastructure
+          
+      - name: Configuration validation
+        run: |
+          npm run validate:config
+          npm run validate:feature-flags
+
+  deploy-blue-environment:
+    name: Deploy Blue Environment
+    runs-on: ubuntu-latest
+    needs: pre-deployment-validation
+    environment: 
+      name: ${{ github.event.inputs.environment }}-blue
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+          
+      - name: Deploy blue environment
+        run: |
+          npm run build
+          ENVIRONMENT=${{ github.event.inputs.environment }} \
+          DEPLOYMENT_SLOT=blue \
+          DEPLOYMENT_ID=${{ needs.pre-deployment-validation.outputs.deployment-id }} \
+          npm run deploy:blue-green
+        env:
+          CDK_DEFAULT_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
+          CDK_DEFAULT_REGION: ${{ env.AWS_REGION }}
+          
+      - name: Wait for deployment completion
+        run: |
+          echo "Waiting for blue environment deployment to complete..."
+          npm run wait:deployment-complete -- --environment=${{ github.event.inputs.environment }} --slot=blue
+          
+      - name: Store deployment metadata
+        run: |
+          echo "Storing deployment metadata..."
+          aws ssm put-parameter \
+            --name "/ai-model-gateway/${{ github.event.inputs.environment }}/deployment/blue/metadata" \
+            --value '{"deploymentId":"${{ needs.pre-deployment-validation.outputs.deployment-id }}","version":"${{ needs.pre-deployment-validation.outputs.current-version }}","timestamp":"$(date -u +%Y-%m-%dT%H:%M:%SZ)","gitCommit":"${{ github.sha }}"}' \
+            --type String \
+            --overwrite
+
+  smoke-tests-blue:
+    name: Smoke Tests - Blue Environment
+    runs-on: ubuntu-latest
+    needs: [pre-deployment-validation, deploy-blue-environment]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+          
+      - name: Run smoke tests against blue environment
+        run: |
+          ENVIRONMENT=${{ github.event.inputs.environment }} \
+          DEPLOYMENT_SLOT=blue \
+          npm run test:smoke
+          
+      - name: Health check validation
+        run: |
+          npm run health-check -- --environment=${{ github.event.inputs.environment }} --slot=blue
+          
+      - name: Performance baseline test
+        run: |
+          npm run test:performance:baseline -- --environment=${{ github.event.inputs.environment }} --slot=blue
+
+  traffic-switch:
+    name: Switch Traffic to Blue
+    runs-on: ubuntu-latest
+    needs: [pre-deployment-validation, deploy-blue-environment, smoke-tests-blue]
+    environment: 
+      name: ${{ github.event.inputs.environment }}-traffic-switch
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+          
+      - name: Gradual traffic switch
+        run: |
+          echo "Starting gradual traffic switch..."
+          
+          # Switch 10% traffic first
+          npm run traffic:switch -- --environment=${{ github.event.inputs.environment }} --percentage=10 --target=blue
+          sleep 300  # Wait 5 minutes
+          
+          # Monitor metrics
+          npm run monitor:metrics -- --environment=${{ github.event.inputs.environment }} --duration=300
+          
+          # Switch 50% traffic
+          npm run traffic:switch -- --environment=${{ github.event.inputs.environment }} --percentage=50 --target=blue
+          sleep 300  # Wait 5 minutes
+          
+          # Monitor metrics again
+          npm run monitor:metrics -- --environment=${{ github.event.inputs.environment }} --duration=300
+          
+          # Switch 100% traffic
+          npm run traffic:switch -- --environment=${{ github.event.inputs.environment }} --percentage=100 --target=blue
+          
+      - name: Validate traffic switch
+        run: |
+          npm run validate:traffic-switch -- --environment=${{ github.event.inputs.environment }} --target=blue
+
+  post-deployment-validation:
+    name: Post-deployment Validation
+    runs-on: ubuntu-latest
+    needs: [pre-deployment-validation, traffic-switch]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+          
+      - name: Run full integration tests
+        run: |
+          ENVIRONMENT=${{ github.event.inputs.environment }} \
+          npm run test:integration:full
+          
+      - name: Performance regression tests
+        run: |
+          npm run test:performance:regression -- --environment=${{ github.event.inputs.environment }}
+          
+      - name: Security validation
+        run: |
+          npm run security:validate -- --environment=${{ github.event.inputs.environment }}
+          
+      - name: Feature flag validation
+        run: |
+          npm run validate:feature-flags -- --environment=${{ github.event.inputs.environment }}
+          
+      - name: Configuration drift detection
+        run: |
+          npm run detect:config-drift -- --environment=${{ github.event.inputs.environment }}
+
+  cleanup-green-environment:
+    name: Cleanup Green Environment
+    runs-on: ubuntu-latest
+    needs: [pre-deployment-validation, post-deployment-validation]
+    if: success()
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+          
+      - name: Cleanup old green environment
+        run: |
+          echo "Cleaning up old green environment..."
+          npm run cleanup:green-environment -- --environment=${{ github.event.inputs.environment }}
+          
+      - name: Update deployment status
+        run: |
+          aws ssm put-parameter \
+            --name "/ai-model-gateway/${{ github.event.inputs.environment }}/deployment/status" \
+            --value '{"status":"success","deploymentId":"${{ needs.pre-deployment-validation.outputs.deployment-id }}","timestamp":"$(date -u +%Y-%m-%dT%H:%M:%SZ)","activeSlot":"blue"}' \
+            --type String \
+            --overwrite
+
+  rollback:
+    name: Rollback Deployment
+    runs-on: ubuntu-latest
+    needs: [pre-deployment-validation, deploy-blue-environment, smoke-tests-blue, traffic-switch, post-deployment-validation]
+    if: failure() && github.event.inputs.rollback_on_failure == 'true'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+          
+      - name: Rollback traffic to green
+        run: |
+          echo "Rolling back traffic to green environment..."
+          npm run traffic:switch -- --environment=${{ github.event.inputs.environment }} --percentage=100 --target=green
+          
+      - name: Validate rollback
+        run: |
+          npm run validate:rollback -- --environment=${{ github.event.inputs.environment }}
+          
+      - name: Cleanup failed blue deployment
+        run: |
+          npm run cleanup:failed-deployment -- --environment=${{ github.event.inputs.environment }} --slot=blue
+          
+      - name: Update deployment status
+        run: |
+          aws ssm put-parameter \
+            --name "/ai-model-gateway/${{ github.event.inputs.environment }}/deployment/status" \
+            --value '{"status":"rolled_back","deploymentId":"${{ needs.pre-deployment-validation.outputs.deployment-id }}","timestamp":"$(date -u +%Y-%m-%dT%H:%M:%SZ)","activeSlot":"green","reason":"deployment_failure"}' \
+            --type String \
+            --overwrite
+            
+      - name: Send rollback notification
+        run: |
+          npm run notify:rollback -- --environment=${{ github.event.inputs.environment }} --deployment-id=${{ needs.pre-deployment-validation.outputs.deployment-id }}
