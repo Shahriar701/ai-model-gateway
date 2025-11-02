@@ -5,7 +5,8 @@ import { ProviderRouter } from '../../services/router';
 import { OpenAIProvider, BedrockProvider } from '../../services/providers';
 import { MCPContextService } from '../../services/mcp';
 import { ValidationHelper } from '../../shared/validation';
-import { LLMRequest, RateLimitTier } from '../../shared/types';
+import { LLMRequest, RateLimitTier, RoutingStrategy } from '../../shared/types';
+import { BatchedGatewayService } from '../../services/cache';
 import {
   SecurityMiddleware,
   ValidationMiddleware,
@@ -53,6 +54,17 @@ const providerConfigs = [
 ];
 
 const router = new ProviderRouter(providers, providerConfigs);
+
+// Initialize batched gateway service with request optimization
+const batchedGateway = new BatchedGatewayService(router, {
+  batchConfig: {
+    maxBatchSize: parseInt(process.env.BATCH_SIZE || '5'),
+    batchTimeoutMs: parseInt(process.env.BATCH_TIMEOUT_MS || '100'),
+    enableDeduplication: process.env.ENABLE_DEDUPLICATION !== 'false',
+  },
+  enableIntelligentRouting: process.env.ENABLE_INTELLIGENT_ROUTING !== 'false',
+  costOptimizationThreshold: parseFloat(process.env.COST_OPTIMIZATION_THRESHOLD || '0.001'),
+});
 
 // Initialize MCP context service
 let mcpInitialized = false;
@@ -252,6 +264,10 @@ async function routeRequest(
     return handleCompletions(event, userId, correlationId);
   }
 
+  if (path === '/api/v1/optimization/stats' && httpMethod === 'GET') {
+    return handleOptimizationStats(correlationId);
+  }
+
   // Default response for unhandled routes
   return {
     statusCode: 404,
@@ -283,6 +299,39 @@ async function handleHealthCheck(correlationId: string): Promise<APIGatewayProxy
   };
 }
 
+async function handleOptimizationStats(correlationId: string): Promise<APIGatewayProxyResult> {
+  try {
+    const stats = batchedGateway.getOptimizationStats();
+    
+    return {
+      statusCode: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Correlation-ID': correlationId,
+      },
+      body: JSON.stringify({
+        timestamp: new Date().toISOString(),
+        correlationId,
+        optimization: stats,
+      }),
+    };
+  } catch (error) {
+    logger.error('Failed to get optimization stats', error as Error);
+    
+    return {
+      statusCode: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Correlation-ID': correlationId,
+      },
+      body: JSON.stringify({
+        error: 'Failed to retrieve optimization statistics',
+        correlationId,
+      }),
+    };
+  }
+}
+
 async function handleCompletions(
   event: APIGatewayProxyEvent,
   userId: string,
@@ -310,8 +359,11 @@ async function handleCompletions(
     // Inject MCP context if applicable
     llmRequest = await mcpContextService.injectMCPContext(llmRequest);
 
-    // Route to appropriate provider
-    const response = await router.routeRequest(llmRequest);
+    // Determine routing criteria based on request characteristics
+    const routingCriteria = determineRoutingCriteria(llmRequest, userId);
+
+    // Process through batched gateway service with optimization
+    const response = await batchedGateway.processRequest(llmRequest, routingCriteria);
 
     logger.info('LLM completion successful', {
       userId,
@@ -320,15 +372,24 @@ async function handleCompletions(
       tokens: response.usage.totalTokens,
       cost: response.cost.total,
       latency: response.latency,
+      cached: response.cached || false,
       mcpContextInjected: (llmRequest.metadata as any)?.mcpContextInjected || false,
       mcpToolCalls: (llmRequest.metadata as any)?.mcpToolCalls || [],
     });
+
+    // Add optimization headers
+    const optimizationHeaders = {
+      'X-Request-Cached': String(response.cached || false),
+      'X-Provider-Used': response.provider,
+      'X-Cost-Optimized': 'true',
+    };
 
     return {
       statusCode: 200,
       headers: {
         'Content-Type': 'application/json',
         'X-Correlation-ID': correlationId,
+        ...optimizationHeaders,
       },
       body: JSON.stringify(response),
     };
@@ -348,6 +409,34 @@ function extractTokenCount(response: APIGatewayProxyResult): number {
     // Ignore parsing errors
   }
   return 0;
+}
+
+/**
+ * Determine optimal routing criteria based on request characteristics
+ */
+function determineRoutingCriteria(request: LLMRequest, userId: string) {
+  // Estimate request complexity and cost
+  const messageLength = request.messages.reduce((sum, msg) => sum + msg.content.length, 0);
+  const maxTokens = request.maxTokens || 1000;
+  
+  // Default to cost optimization
+  let strategy = RoutingStrategy.COST_OPTIMIZED;
+  
+  // Switch to latency optimization for short, interactive requests
+  if (messageLength < 500 && maxTokens < 500) {
+    strategy = RoutingStrategy.LATENCY_OPTIMIZED;
+  }
+  
+  // Use priority-based routing for enterprise users (simplified check)
+  if (userId.includes('enterprise') || userId.includes('premium')) {
+    strategy = RoutingStrategy.PRIORITY_BASED;
+  }
+
+  return {
+    strategy,
+    maxCost: parseFloat(process.env.MAX_REQUEST_COST || '1.0'),
+    maxLatency: parseInt(process.env.MAX_REQUEST_LATENCY_MS || '30000'),
+  };
 }
 
 /**
