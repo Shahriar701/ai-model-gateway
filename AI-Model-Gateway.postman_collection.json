@@ -1,0 +1,1035 @@
+{
+  "info": {
+    "_postman_id": "ai-model-gateway-collection",
+    "name": "AI Model Gateway - Complete Test Suite",
+    "description": "Comprehensive test collection for AI Model Gateway with all endpoints, authentication, and error scenarios.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "ai-gateway-tests"
+  },
+  "item": [
+    {
+      "name": "🏥 Health & Status Endpoints",
+      "item": [
+        {
+          "name": "Basic Health Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has status field\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('status');",
+                  "    pm.expect(jsonData.status).to.eql('healthy');",
+                  "});",
+                  "",
+                  "pm.test(\"Response has version\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('version');",
+                  "});",
+                  "",
+                  "pm.test(\"Response time is less than 2000ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Basic health check endpoint - should return healthy status"
+          },
+          "response": []
+        },
+        {
+          "name": "API v1 Health Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has status healthy\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.eql('healthy');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "health"]
+            },
+            "description": "API v1 health check endpoint"
+          },
+          "response": []
+        },
+        {
+          "name": "Detailed Health Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has system information\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('system');",
+                  "    pm.expect(jsonData.system).to.have.property('status');",
+                  "    pm.expect(jsonData.system).to.have.property('uptime');",
+                  "    pm.expect(jsonData.system).to.have.property('memory');",
+                  "});",
+                  "",
+                  "pm.test(\"Response has services information\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('services');",
+                  "    pm.expect(jsonData.services).to.have.property('dynamodb');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/health/detailed",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "health", "detailed"]
+            },
+            "description": "Detailed health check with system and service information"
+          },
+          "response": []
+        },
+        {
+          "name": "Circuit Breakers Status",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/health/circuit-breakers",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "health", "circuit-breakers"]
+            },
+            "description": "Check circuit breaker status for all providers"
+          },
+          "response": []
+        },
+        {
+          "name": "Metrics Health Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/health/metrics",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "health", "metrics"]
+            },
+            "description": "Get system metrics and performance data"
+          },
+          "response": []
+        }
+      ],
+      "description": "Health check and system status endpoints"
+    },
+    {
+      "name": "🔐 Authentication Tests",
+      "item": [
+        {
+          "name": "Completions - No API Key (Should Fail)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 401 or 403\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([401, 403]);",
+                  "});",
+                  "",
+                  "pm.test(\"Response indicates authentication error\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('message');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"model\": \"gpt-4\",\n    \"messages\": [\n        {\n            \"role\": \"user\",\n            \"content\": \"Hello, this should fail without API key\"\n        }\n    ],\n    \"max_tokens\": 50\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/completions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "completions"]
+            },
+            "description": "Test that completions endpoint requires authentication"
+          },
+          "response": []
+        },
+        {
+          "name": "Completions - Invalid API Key (Should Fail)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 401 or 403\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([401, 403]);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-API-Key",
+                "value": "invalid-api-key-12345"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"model\": \"gpt-4\",\n    \"messages\": [\n        {\n            \"role\": \"user\",\n            \"content\": \"Hello with invalid API key\"\n        }\n    ],\n    \"max_tokens\": 50\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/completions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "completions"]
+            },
+            "description": "Test that invalid API keys are rejected"
+          },
+          "response": []
+        }
+      ],
+      "description": "Authentication and authorization tests"
+    },
+    {
+      "name": "🤖 LLM Completions",
+      "item": [
+        {
+          "name": "Basic Completion Request",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 or 202\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 202]);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has correlation ID\", function () {",
+                  "    pm.expect(pm.response.headers.get('X-Correlation-ID')).to.not.be.null;",
+                  "});",
+                  "",
+                  "pm.test(\"Response time is reasonable\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(30000);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-API-Key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"model\": \"gpt-4\",\n    \"messages\": [\n        {\n            \"role\": \"user\",\n            \"content\": \"Hello! Please respond with a simple greeting.\"\n        }\n    ],\n    \"max_tokens\": 100,\n    \"temperature\": 0.7\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/completions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "completions"]
+            },
+            "description": "Basic completion request with valid API key"
+          },
+          "response": []
+        },
+        {
+          "name": "Completion with MCP Context",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 or 202\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 202]);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has correlation ID\", function () {",
+                  "    pm.expect(pm.response.headers.get('X-Correlation-ID')).to.not.be.null;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-API-Key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"model\": \"gpt-4\",\n    \"messages\": [\n        {\n            \"role\": \"user\",\n            \"content\": \"What wireless headphones do you recommend? I'm looking for something with good noise cancellation.\"\n        }\n    ],\n    \"max_tokens\": 200,\n    \"temperature\": 0.3,\n    \"mcpContext\": {\n        \"searchQuery\": \"wireless headphones noise canceling\",\n        \"filters\": {\n            \"category\": \"Electronics\",\n            \"priceRange\": {\n                \"min\": 100,\n                \"max\": 300\n            }\n        }\n    }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/completions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "completions"]
+            },
+            "description": "Completion request with MCP context for product recommendations"
+          },
+          "response": []
+        },
+        {
+          "name": "Completion with Different Model",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 or 202\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 202]);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-API-Key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"model\": \"gpt-3.5-turbo\",\n    \"messages\": [\n        {\n            \"role\": \"system\",\n            \"content\": \"You are a helpful assistant that provides concise answers.\"\n        },\n        {\n            \"role\": \"user\",\n            \"content\": \"Explain quantum computing in one sentence.\"\n        }\n    ],\n    \"max_tokens\": 50,\n    \"temperature\": 0.5\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/completions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "completions"]
+            },
+            "description": "Test with different model (GPT-3.5-turbo)"
+          },
+          "response": []
+        },
+        {
+          "name": "Completion with Bedrock Model",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 or 202\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 202]);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-API-Key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"model\": \"claude-3-sonnet\",\n    \"messages\": [\n        {\n            \"role\": \"user\",\n            \"content\": \"Write a haiku about artificial intelligence.\"\n        }\n    ],\n    \"max_tokens\": 100,\n    \"temperature\": 0.8\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/completions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "completions"]
+            },
+            "description": "Test with AWS Bedrock model (Claude)"
+          },
+          "response": []
+        }
+      ],
+      "description": "LLM completion requests with various configurations"
+    },
+    {
+      "name": "🔧 Admin Endpoints",
+      "item": [
+        {
+          "name": "Get Configuration",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/config",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "config"]
+            },
+            "description": "Get current system configuration"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Configuration",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 or 202\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 202]);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-API-Key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"rateLimits\": {\n        \"free\": {\n            \"requestsPerMinute\": 10,\n            \"requestsPerHour\": 100\n        },\n        \"premium\": {\n            \"requestsPerMinute\": 100,\n            \"requestsPerHour\": 1000\n        }\n    },\n    \"circuitBreaker\": {\n        \"failureThreshold\": 5,\n        \"timeoutMs\": 60000\n    }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/config",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "config"]
+            },
+            "description": "Update system configuration"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Admin Metrics",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/metrics",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "metrics"]
+            },
+            "description": "Get detailed system metrics for administrators"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Circuit Breaker Status",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/circuit-breakers",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "circuit-breakers"]
+            },
+            "description": "Get circuit breaker status for all providers"
+          },
+          "response": []
+        },
+        {
+          "name": "Reset Circuit Breakers",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 or 202\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 202]);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-API-Key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"action\": \"reset\",\n    \"providers\": [\"openai\", \"bedrock\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/circuit-breakers",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "circuit-breakers"]
+            },
+            "description": "Reset circuit breakers for specified providers"
+          },
+          "response": []
+        }
+      ],
+      "description": "Administrative endpoints for system management"
+    },
+    {
+      "name": "🌐 CORS & Options",
+      "item": [
+        {
+          "name": "CORS Preflight - Root",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"CORS headers present\", function () {",
+                  "    pm.expect(pm.response.headers.get('Access-Control-Allow-Origin')).to.not.be.null;",
+                  "    pm.expect(pm.response.headers.get('Access-Control-Allow-Methods')).to.not.be.null;",
+                  "    pm.expect(pm.response.headers.get('Access-Control-Allow-Headers')).to.not.be.null;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "OPTIONS",
+            "header": [
+              {
+                "key": "Origin",
+                "value": "https://example.com"
+              },
+              {
+                "key": "Access-Control-Request-Method",
+                "value": "POST"
+              },
+              {
+                "key": "Access-Control-Request-Headers",
+                "value": "Content-Type,X-API-Key"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/",
+              "host": ["{{baseUrl}}"],
+              "path": [""]
+            },
+            "description": "Test CORS preflight request"
+          },
+          "response": []
+        },
+        {
+          "name": "CORS Preflight - Completions",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"CORS headers present\", function () {",
+                  "    pm.expect(pm.response.headers.get('Access-Control-Allow-Origin')).to.not.be.null;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "OPTIONS",
+            "header": [
+              {
+                "key": "Origin",
+                "value": "https://example.com"
+              },
+              {
+                "key": "Access-Control-Request-Method",
+                "value": "POST"
+              },
+              {
+                "key": "Access-Control-Request-Headers",
+                "value": "Content-Type,X-API-Key"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/completions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "completions"]
+            },
+            "description": "Test CORS preflight for completions endpoint"
+          },
+          "response": []
+        }
+      ],
+      "description": "CORS and OPTIONS request tests"
+    },
+    {
+      "name": "⚠️ Error Scenarios",
+      "item": [
+        {
+          "name": "Invalid JSON Body",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test(\"Error response has message\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('error');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-API-Key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"model\": \"gpt-4\",\n    \"messages\": [\n        {\n            \"role\": \"user\",\n            \"content\": \"This JSON is invalid\"\n        }\n    ],\n    \"max_tokens\": 50,\n    // This comment makes it invalid JSON\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/completions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "completions"]
+            },
+            "description": "Test error handling for invalid JSON"
+          },
+          "response": []
+        },
+        {
+          "name": "Missing Required Fields",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test(\"Error response indicates validation error\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('error');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-API-Key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"model\": \"gpt-4\"\n    // Missing required messages field\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/completions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "completions"]
+            },
+            "description": "Test validation error for missing required fields"
+          },
+          "response": []
+        },
+        {
+          "name": "Unsupported Model",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 400 or 422\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([400, 422]);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-API-Key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"model\": \"unsupported-model-xyz\",\n    \"messages\": [\n        {\n            \"role\": \"user\",\n            \"content\": \"Test with unsupported model\"\n        }\n    ],\n    \"max_tokens\": 50\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/completions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "completions"]
+            },
+            "description": "Test error handling for unsupported model"
+          },
+          "response": []
+        },
+        {
+          "name": "404 - Non-existent Endpoint",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 404\", function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/non-existent-endpoint",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "non-existent-endpoint"]
+            },
+            "description": "Test 404 error for non-existent endpoint"
+          },
+          "response": []
+        }
+      ],
+      "description": "Error handling and edge case tests"
+    },
+    {
+      "name": "🚀 Performance Tests",
+      "item": [
+        {
+          "name": "Load Test - Multiple Health Checks",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response time is acceptable\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(5000);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has expected structure\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('status');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Performance test for health endpoint (run multiple times)"
+          },
+          "response": []
+        },
+        {
+          "name": "Concurrent Completion Requests",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 or 202\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 202]);",
+                  "});",
+                  "",
+                  "pm.test(\"Response time is reasonable for concurrent load\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(45000);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-API-Key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"model\": \"gpt-3.5-turbo\",\n    \"messages\": [\n        {\n            \"role\": \"user\",\n            \"content\": \"This is a concurrent load test request. Please respond briefly.\"\n        }\n    ],\n    \"max_tokens\": 30,\n    \"temperature\": 0.1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/completions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "completions"]
+            },
+            "description": "Test completion endpoint under concurrent load"
+          },
+          "response": []
+        }
+      ],
+      "description": "Performance and load testing scenarios"
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Set correlation ID for tracking requests",
+          "pm.globals.set('correlationId', pm.variables.replaceIn('{{$guid}}'));",
+          "",
+          "// Add correlation ID header if not present",
+          "if (!pm.request.headers.has('X-Correlation-ID')) {",
+          "    pm.request.headers.add({",
+          "        key: 'X-Correlation-ID',",
+          "        value: pm.globals.get('correlationId')",
+          "    });",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Global test to check for correlation ID in response",
+          "pm.test(\"Response has correlation ID header\", function () {",
+          "    const correlationId = pm.response.headers.get('X-Correlation-ID');",
+          "    if (correlationId) {",
+          "        pm.expect(correlationId).to.not.be.empty;",
+          "    }",
+          "});",
+          "",
+          "// Log response time for monitoring",
+          "console.log(`Request to ${pm.request.url} took ${pm.response.responseTime}ms`);"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://wegkfrv0gh.execute-api.us-east-1.amazonaws.com/v1",
+      "type": "string",
+      "description": "Base URL for the AI Model Gateway API"
+    },
+    {
+      "key": "apiKey",
+      "value": "sk-test123456789abcdef",
+      "type": "string",
+      "description": "Test API key for authenticated requests"
+    }
+  ]
+}
