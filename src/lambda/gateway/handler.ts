@@ -37,7 +37,7 @@ import { CorrelationService } from '../../services/monitoring/correlation-servic
 import { RunbookService } from '../../services/monitoring/runbook-service';
 import { SecurityMonitor } from '../../services/monitoring/security-monitor';
 import { AdminApi } from '../../services/config/admin-api';
-import { CacheManager } from '../../services/cache/cache-manager';
+import { getCacheManager } from '../../services/cache/cache-manager';
 
 const logger = new Logger('GatewayHandler');
 const apiKeyService = new ApiKeyService();
@@ -51,7 +51,7 @@ const correlationService = CorrelationService.getInstance();
 const runbookService = RunbookService.getInstance();
 const securityMonitor = SecurityMonitor.getInstance();
 const adminApi = AdminApi.getInstance();
-const cacheManager = new CacheManager();
+const cacheManager = getCacheManager();
 
 // Initialize providers and router with enhanced configuration
 const providers = [new OpenAIProvider(), new BedrockProvider()];
@@ -732,8 +732,8 @@ async function handleCompletions(
     });
 
     // Check cache first for potential cost savings
-    const cacheKey = await cacheManager.generateCacheKey(llmRequest);
-    const cachedResponse = await cacheManager.get(cacheKey);
+    const cacheKey = cacheManager.generateRequestHash(llmRequest);
+    const cachedResponse = await cacheManager.getCachedLLMResponse(cacheKey);
     
     if (cachedResponse) {
       contextLogger.info('Serving cached response', {
@@ -851,7 +851,7 @@ async function handleCompletions(
       });
 
       // Strategy 1: Try to serve stale cache if available
-      const staleResponse = await cacheManager.getStale(cacheKey);
+      const staleResponse = await cacheManager.getCachedLLMResponse(cacheKey);
       if (staleResponse) {
         contextLogger.info('Serving stale cached response as fallback', {
           userId,
@@ -918,9 +918,11 @@ async function handleCompletions(
 
     // Cache the successful response
     if (!response.cached) {
-      await cacheManager.set(cacheKey, response, {
-        ttl: parseInt(process.env.RESPONSE_CACHE_TTL || '300'), // 5 minutes default
-      });
+      await cacheManager.cacheLLMResponse(
+        cacheKey, 
+        response, 
+        parseInt(process.env.RESPONSE_CACHE_TTL || '300') // 5 minutes default
+      );
     }
 
     // Record comprehensive metrics

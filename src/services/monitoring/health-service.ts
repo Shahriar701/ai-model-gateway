@@ -128,7 +128,7 @@ export class HealthService {
     const healthMetrics: ProviderHealthMetrics[] = [];
 
     try {
-      const providers = this.providerRouter.getProviders();
+      const providers = this.providerRouter.getAllProviders();
       
       for (const provider of providers) {
         const startTime = Date.now();
@@ -191,18 +191,18 @@ export class HealthService {
       const testKey = `health_check_${Date.now()}`;
       const testValue = 'health_test';
       
-      await this.cacheManager.set(testKey, testValue, 10); // 10 second TTL
-      const retrieved = await this.cacheManager.get(testKey);
+      await this.cacheManager.setCache('health', testKey, testValue, 10); // 10 second TTL
+      const retrieved = await this.cacheManager.getCache('health', testKey);
       
       if (retrieved !== testValue) {
         throw new Error('Cache read/write test failed');
       }
 
       // Clean up test key
-      await this.cacheManager.delete(testKey);
+      await this.cacheManager.deleteCache('health', testKey);
 
       // Get cache hit rate if available
-      const stats = this.cacheManager.getStats();
+      const stats = await this.cacheManager.getCacheStats();
       const hitRate = stats.hits / Math.max(stats.hits + stats.misses, 1) * 100;
 
       return {
@@ -228,7 +228,7 @@ export class HealthService {
       const startTime = Date.now();
       
       // Test database connectivity with a simple query
-      await this.productService.searchProducts('health_check', {}, 1);
+      await this.productService.searchProducts('health_check', {});
       
       const latency = Date.now() - startTime;
 
@@ -252,7 +252,7 @@ export class HealthService {
     }
 
     try {
-      const providers = this.providerRouter.getProviders();
+      const providers = this.providerRouter.getAllProviders();
       
       // Check if at least one provider is available
       for (const provider of providers) {
@@ -289,7 +289,7 @@ export class HealthService {
     try {
       const testKey = `quick_health_${Date.now()}`;
       await Promise.race([
-        this.cacheManager.set(testKey, 'test', 5),
+        this.cacheManager.setCache('health', testKey, 'test', 5),
         new Promise<void>((_, reject) => 
           setTimeout(() => reject(new Error('Timeout')), 1000)
         ),

@@ -275,4 +275,3 @@ ribe('recordErrorMetrics', () => {
       expect(userTierDimension).toBeUndefined();
     });
   });
-});

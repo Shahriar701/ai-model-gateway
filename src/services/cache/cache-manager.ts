@@ -42,6 +42,22 @@ export class CacheManager {
   }
 
   /**
+   * Generate a hash for LLM request caching
+   */
+  generateRequestHash(request: any): string {
+    const cacheableRequest = {
+      model: request.model,
+      messages: request.messages,
+      temperature: request.temperature || 0,
+      maxTokens: request.maxTokens,
+      topP: request.topP,
+      frequencyPenalty: request.frequencyPenalty,
+      presencePenalty: request.presencePenalty,
+    };
+    return createHash('sha256').update(JSON.stringify(cacheableRequest)).digest('hex').substring(0, 16);
+  }
+
+  /**
    * Cache LLM response
    */
   async cacheLLMResponse(requestHash: string, response: any, ttlSeconds?: number): Promise<void> {

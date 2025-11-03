@@ -49,7 +49,6 @@ export type {
 
 export { FeatureFlagRouter } from './feature-flag-router';
 export type {
-  BatchingConfig,
   McpFeatureConfig,
 } from './feature-flag-router';
 

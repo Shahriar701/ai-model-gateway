@@ -207,8 +207,8 @@ export class Logger {
     try {
       const tracingService = TracingService.getInstance();
       const context = tracingService.getTraceContext();
-      this.traceId = context.traceId;
-      this.segmentId = context.segmentId;
+      this.traceId = context.traceId || undefined;
+      this.segmentId = context.segmentId || undefined;
     } catch (error) {
       // X-Ray not available
     }

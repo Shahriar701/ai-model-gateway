@@ -322,6 +322,13 @@ export class ProviderRouter {
   }
 
   /**
+   * Get all registered providers
+   */
+  getAllProviders(): ProviderAdapter[] {
+    return Array.from(this.providers.values());
+  }
+
+  /**
    * Get provider statistics
    */
   getProviderStats(providerName: string): ProviderStats | null {

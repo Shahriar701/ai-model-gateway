@@ -383,5 +383,3 @@ scribe('Product Recommendation Flow', () => {
       expect(systemMessage).toContain('Product 0');
       // May not contain all 100 products due to truncation
     });
-  });
-});

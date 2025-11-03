@@ -48,9 +48,21 @@ export interface RequestMetadata {
   sessionId?: string;
   applicationId?: string;
   tags?: string[];
+  mcpContextInjected?: boolean;
+  mcpToolCalls?: string[];
+  mcpExecutedTools?: string[];
+  mcpFailedTools?: string[];
+  mcpExecutionTime?: number;
+  mcpContextLength?: number;
+  mcpError?: string;
   customFields?: Record<string, any>;
   mcpContextInjected?: boolean;
   mcpToolCalls?: string[];
+  mcpExecutedTools?: string[];
+  mcpFailedTools?: string[];
+  mcpExecutionTime?: number;
+  mcpContextLength?: number;
+  mcpError?: string;
 }
 
 /**

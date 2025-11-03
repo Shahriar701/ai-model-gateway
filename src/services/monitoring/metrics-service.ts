@@ -427,6 +427,82 @@ export class MetricsService {
   /**
    * Get current metrics statistics for debugging
    */
+  /**
+   * Record MCP tool execution metrics
+   */
+  async recordMCPToolMetrics(
+    toolName: string,
+    success: boolean,
+    executionTime: number,
+    correlationId?: string
+  ): Promise<void> {
+    try {
+      const timestamp = new Date();
+      const dimensions = [
+        { Name: 'ToolName', Value: toolName },
+        { Name: 'Success', Value: success.toString() },
+      ];
+
+      this.addMetric('MCPToolExecutions', 1, 'Count', dimensions, timestamp);
+      this.addMetric('MCPToolExecutionTime', executionTime, 'Milliseconds', dimensions, timestamp);
+
+      if (!success) {
+        this.addMetric('MCPToolFailures', 1, 'Count', dimensions, timestamp);
+      }
+
+    } catch (error) {
+      this.logger.error('Failed to record MCP tool metrics', error as Error, { correlationId });
+    }
+  }
+
+  /**
+   * Record MCP context injection metrics
+   */
+  async recordMCPContextMetrics(
+    totalTools: number,
+    executedTools: number,
+    failedTools: number,
+    executionTime: number,
+    correlationId?: string
+  ): Promise<void> {
+    try {
+      const timestamp = new Date();
+      const dimensions = [
+        { Name: 'ContextInjection', Value: 'true' },
+      ];
+
+      this.addMetric('MCPContextInjections', 1, 'Count', dimensions, timestamp);
+      this.addMetric('MCPContextExecutionTime', executionTime, 'Milliseconds', dimensions, timestamp);
+      this.addMetric('MCPToolsExecuted', executedTools, 'Count', dimensions, timestamp);
+      this.addMetric('MCPToolsFailed', failedTools, 'Count', dimensions, timestamp);
+      this.addMetric('MCPSuccessRate', executedTools / Math.max(totalTools, 1), 'Percent', dimensions, timestamp);
+
+    } catch (error) {
+      this.logger.error('Failed to record MCP context metrics', error as Error, { correlationId });
+    }
+  }
+
+  /**
+   * Record MCP error metrics
+   */
+  async recordMCPErrorMetrics(
+    errorType: string,
+    errorMessage: string,
+    correlationId?: string
+  ): Promise<void> {
+    try {
+      const timestamp = new Date();
+      const dimensions = [
+        { Name: 'MCPErrorType', Value: errorType },
+      ];
+
+      this.addMetric('MCPErrors', 1, 'Count', dimensions, timestamp);
+
+    } catch (error) {
+      this.logger.error('Failed to record MCP error metrics', error as Error, { correlationId });
+    }
+  }
+
   getMetricsStats(): {
     batchedCount: number;
     namespace: string;
@@ -439,5 +515,91 @@ export class MetricsService {
       batchSize: MetricsService.BATCH_SIZE,
       batchTimeout: MetricsService.BATCH_TIMEOUT_MS,
     };
+  }
+
+  /**
+   * Record MCP tool execution metrics
+   */
+  async recordMCPToolMetrics(
+    toolName: string,
+    success: boolean,
+    executionTime: number,
+    correlationId?: string
+  ): Promise<void> {
+    try {
+      const timestamp = new Date();
+      const dimensions = [
+        { Name: 'ToolName', Value: toolName },
+        { Name: 'Success', Value: success.toString() },
+      ];
+
+      this.addMetric('MCPToolExecutions', 1, 'Count', dimensions, timestamp);
+      this.addMetric('MCPToolExecutionTime', executionTime, 'Milliseconds', dimensions, timestamp);
+
+      if (!success) {
+        this.addMetric('MCPToolErrors', 1, 'Count', dimensions, timestamp);
+      }
+
+    } catch (error) {
+      this.logger.error('Failed to record MCP tool metrics', error as Error, { correlationId });
+    }
+  }
+
+  /**
+   * Record MCP context injection metrics
+   */
+  async recordMCPContextMetrics(
+    totalTools: number,
+    executedTools: number,
+    failedTools: number,
+    executionTime: number,
+    correlationId?: string
+  ): Promise<void> {
+    try {
+      const timestamp = new Date();
+      const dimensions = [{ Name: 'MCPOperation', Value: 'ContextInjection' }];
+
+      this.addMetric('MCPContextInjections', 1, 'Count', dimensions, timestamp);
+      this.addMetric('MCPContextExecutionTime', executionTime, 'Milliseconds', dimensions, timestamp);
+      this.addMetric('MCPToolsExecuted', executedTools, 'Count', dimensions, timestamp);
+      this.addMetric('MCPToolsFailed', failedTools, 'Count', dimensions, timestamp);
+      this.addMetric('MCPSuccessRate', (executedTools / Math.max(totalTools, 1)) * 100, 'Percent', dimensions, timestamp);
+
+    } catch (error) {
+      this.logger.error('Failed to record MCP context metrics', error as Error, { correlationId });
+    }
+  }
+
+  /**
+   * Record MCP error metrics
+   */
+  async recordMCPErrorMetrics(
+    errorType: string,
+    errorMessage: string,
+    correlationId?: string
+  ): Promise<void> {
+    try {
+      const timestamp = new Date();
+      const dimensions = [
+        { Name: 'MCPErrorType', Value: errorType },
+        { Name: 'ErrorCategory', Value: this.categorizeError(errorMessage) },
+      ];
+
+      this.addMetric('MCPErrors', 1, 'Count', dimensions, timestamp);
+
+    } catch (error) {
+      this.logger.error('Failed to record MCP error metrics', error as Error, { correlationId });
+    }
+  }
+
+  /**
+   * Categorize error for better metrics grouping
+   */
+  private categorizeError(errorMessage: string): string {
+    if (errorMessage.includes('timeout')) return 'Timeout';
+    if (errorMessage.includes('network') || errorMessage.includes('connection')) return 'Network';
+    if (errorMessage.includes('validation')) return 'Validation';
+    if (errorMessage.includes('authentication')) return 'Authentication';
+    return 'Unknown';
   }
 }

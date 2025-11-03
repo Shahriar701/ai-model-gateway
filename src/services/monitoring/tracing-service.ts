@@ -247,7 +247,7 @@ export class TracingService {
     }
 
     try {
-      const httpData = subsegment.http || { request: {} };
+      const httpData = (subsegment as any).http || { request: {} };
       httpData.response = {
         status: statusCode,
         content_length: responseSize,
@@ -392,7 +392,8 @@ export class TracingService {
     try {
       if (outputTokens) {
         subsegment.addAnnotation('llm.output_tokens', outputTokens);
-        subsegment.addAnnotation('llm.total_tokens', (subsegment.annotations?.['llm.input_tokens'] || 0) + outputTokens);
+        const inputTokens = (subsegment as any).annotations?.['llm.input_tokens'] || 0;
+        subsegment.addAnnotation('llm.total_tokens', inputTokens + outputTokens);
       }
 
       if (cost !== undefined) {
@@ -431,7 +432,7 @@ export class TracingService {
 
     try {
       const segment = AWSXRay.getSegment();
-      return segment ? segment.trace_id : null;
+      return segment ? (segment as any).trace_id : null;
     } catch {
       return null;
     }

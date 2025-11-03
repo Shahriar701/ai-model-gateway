@@ -129,8 +129,7 @@ describe('Provider Contract Tests', () => {
       await expect(openaiProvider.generateCompletion(request)).rejects.toThrow();
     });
   });
-});  desc
-ribe('Bedrock Provider Contract', () => {
+});  describe('Bedrock Provider Contract', () => {
     let bedrockProvider: BedrockProvider;
     let mockBedrock: any;
 
@@ -330,4 +329,3 @@ ribe('Bedrock Provider Contract', () => {
       expect(bedrockCost.total).toBeGreaterThan(0);
     });
   });
-});

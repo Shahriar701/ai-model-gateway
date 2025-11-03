@@ -64,75 +64,7 @@ export class MCPContextService {
     return productKeywords.some(keyword => content.includes(keyword));
   }
 
-  /**
-   * Extract MCP tool calls from user message
-   */
-  extractMCPToolCalls(userMessage: string): Array<{
-    toolName: string;
-    arguments: Record<string, any>;
-  }> {
-    const toolCalls: Array<{ toolName: string; arguments: Record<string, any> }> = [];
 
-    // Pattern for "I want to search for X in Y category under Z"
-    const fullSearchPattern = /I want to search for\s+(.+?)\s+in\s+(\w+)\s+category\s+under\s+(\d+)/i;
-    const fullMatch = userMessage.match(fullSearchPattern);
-    if (fullMatch) {
-      const query = fullMatch[1].trim();
-      const category = fullMatch[2].trim();
-      const maxPrice = parseInt(fullMatch[3]);
-
-      toolCalls.push({
-        toolName: 'product_search',
-        arguments: {
-          query,
-          category,
-          priceRange: { max: maxPrice }
-        }
-      });
-      return toolCalls; // Return early if we found a full match
-    }
-
-    // Simpler patterns for basic searches
-    const simplePatterns = [
-      /(?:search for|looking for|find|show me)\s+(.+)/i,
-      /I (?:want to search for|am looking for)\s+(.+)/i
-    ];
-
-    for (const pattern of simplePatterns) {
-      const match = userMessage.match(pattern);
-      if (match) {
-        const query = match[1].trim();
-        
-        toolCalls.push({
-          toolName: 'product_search',
-          arguments: { query }
-        });
-        break;
-      }
-    }
-
-    // Pattern for specific product requests
-    const productIdPattern = /product\s+(?:id\s+)?([a-zA-Z0-9_-]+)/i;
-    const productMatch = userMessage.match(productIdPattern);
-    if (productMatch) {
-      toolCalls.push({
-        toolName: 'get_product',
-        arguments: { productId: productMatch[1] }
-      });
-    }
-
-    // Pattern for category browsing
-    const categoryPattern = /(?:show|list|browse)\s+(.+?)\s+(?:category|products)/i;
-    const categoryMatch = userMessage.match(categoryPattern);
-    if (categoryMatch) {
-      toolCalls.push({
-        toolName: 'get_category_products',
-        arguments: { category: categoryMatch[1].trim() }
-      });
-    }
-
-    return toolCalls;
-  }
 
   /**
    * Execute MCP tools with enhanced error handling and monitoring

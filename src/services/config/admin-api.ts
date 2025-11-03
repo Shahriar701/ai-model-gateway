@@ -43,7 +43,7 @@ export class AdminApi {
       if (!await this.verifyAdminPermissions(event)) {
         this.securityLogger.logAuthenticationAttempt(
           correlationId,
-          userId,
+          userId || null,
           null,
           false,
           sourceIp,
